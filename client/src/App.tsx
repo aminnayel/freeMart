@@ -20,6 +20,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Shop} />
+        <Route path="/shop" component={Shop} />
         <Route path="/cart" component={Cart} />
         <Route path="/checkout">
           <RequireAuth>

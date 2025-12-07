@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import webpush from "web-push";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import {
@@ -8,8 +9,20 @@ import {
   insertCartItemSchema,
   insertOrderSchema,
   updateUserProfileSchema,
+  insertProductNotificationSchema,
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+
+// Configure VAPID keys for Web Push
+// In production, use environment variables for these keys
+const VAPID_PUBLIC_KEY = 'BIZXzkSnvXupXUdVzeg2X2NypI2ebctw9yjuxZMVho94kpHhlCZ_xjrp5BR-Bx_Z3KRbfrhgROCrmQxye1rqKI0';
+const VAPID_PRIVATE_KEY = 'XGD4sLutKebBlIRhFGGApwRbQeCObTedtpeMRjJ5_c0';
+
+webpush.setVapidDetails(
+  'mailto:admin@khudarfakha.com',
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY
+);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -17,7 +30,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -29,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Profile routes
   app.get('/api/profile', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -40,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/profile', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const result = updateUserProfileSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({
@@ -61,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
@@ -102,10 +115,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/admin/products/:id', isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const product = await storage.updateProduct(parseInt(req.params.id), req.body);
+      const productId = parseInt(req.params.id);
+
+      // Get current product to check old stock
+      const oldProduct = await storage.getProductById(productId);
+      if (!oldProduct) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      const oldStock = oldProduct.stock || 0;
+      const newStock = req.body.stock !== undefined ? req.body.stock : oldStock;
+
+      // Update the product
+      const product = await storage.updateProduct(productId, req.body);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
+
+      // If stock increased from 0, send notifications to waiting users
+      if (oldStock === 0 && newStock > 0) {
+        try {
+          console.log(`[STOCK] Product "${product.name}" is back in stock! Notifying subscribers...`);
+
+          // Get all users who subscribed to notifications for this product
+          const subscribers = await storage.getNotificationSubscribers(productId);
+
+          if (subscribers.length > 0) {
+            console.log(`[STOCK] Found ${subscribers.length} subscribers for product ${productId}`);
+
+            const payload = JSON.stringify({
+              title: `🎉 ${product.name} عاد للمخزون!`,
+              body: `المنتج الذي كنت تنتظره أصبح متاحاً الآن. اطلبه قبل نفاد الكمية!`,
+              link: '/'
+            });
+
+            let successCount = 0;
+            let failedCount = 0;
+
+            await Promise.all(
+              subscribers.map(async (notification) => {
+                try {
+                  const subscription = await storage.getPushSubscriptionByUserId(notification.userId);
+                  if (subscription) {
+                    const pushSubscription = {
+                      endpoint: subscription.endpoint,
+                      keys: {
+                        p256dh: subscription.keys.p256dh,
+                        auth: subscription.keys.auth
+                      }
+                    };
+
+                    await webpush.sendNotification(pushSubscription, payload);
+                    successCount++;
+                    console.log(`[STOCK] Notification sent to user ${notification.userId}`);
+                  }
+                } catch (pushError: any) {
+                  failedCount++;
+                  console.error(`[STOCK] Failed to notify user ${notification.userId}:`, pushError.message);
+
+                  // Clean up invalid subscriptions
+                  if (pushError.statusCode === 410 || pushError.statusCode === 404) {
+                    await storage.removePushSubscription(notification.userId);
+                  }
+                }
+              })
+            );
+
+            // Clean up notifications after sending
+            await storage.deleteNotificationsForProduct(productId);
+            console.log(`[STOCK] Successfully notified ${successCount} users, ${failedCount} failed`);
+          }
+        } catch (notifyError) {
+          console.error("[STOCK] Error sending back-in-stock notifications:", notifyError);
+          // Don't fail the product update if notification fails
+        }
+      }
+
       res.json(product);
     } catch (error) {
       console.error("Error updating product:", error);
@@ -120,6 +205,284 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting product:", error);
       res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // Notifications routes
+  app.post('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const result = insertProductNotificationSchema.safeParse({ ...req.body, userId });
+
+      if (!result.success) {
+        return res.status(400).json({
+          message: fromZodError(result.error).toString()
+        });
+      }
+
+      // Check if already subscribed
+      const existing = await storage.getProductNotification(userId, result.data.productId);
+      if (existing) {
+        return res.status(200).json({ message: "Already subscribed" });
+      }
+
+      const notification = await storage.createProductNotification(result.data);
+      res.status(201).json(notification);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      res.status(500).json({ message: "Failed to create notification" });
+    }
+  });
+
+  // Admin Push Notification - Real Web Push
+  app.post('/api/admin/push-notification', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { title, message, link } = req.body;
+
+      if (!title || !message) {
+        return res.status(400).json({ message: "Title and message are required" });
+      }
+
+      // Get all push subscriptions
+      const subscriptions = await storage.getPushSubscriptions();
+
+      if (subscriptions.length === 0) {
+        // Still return success but indicate no subscribers
+        console.log(`[PUSH NOTIFICATION] No subscribers. Title: ${title}, Message: ${message}`);
+        return res.json({
+          success: true,
+          message: "Notification saved (no active subscribers yet)",
+          subscriberCount: 0
+        });
+      }
+
+      console.log(`[PUSH NOTIFICATION] Broadcasting to ${subscriptions.length} subscribers`);
+      console.log(`Title: ${title}`);
+      console.log(`Message: ${message}`);
+      console.log(`Link: ${link || '/'}`);
+
+      // Prepare the push notification payload
+      const payload = JSON.stringify({
+        title: title,
+        body: message,
+        link: link || '/'
+      });
+
+      // Send push notifications to all subscribers
+      let successCount = 0;
+      let failedCount = 0;
+      const failedSubscriptions: string[] = [];
+
+      await Promise.all(
+        subscriptions.map(async (sub) => {
+          try {
+            const pushSubscription = {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth
+              }
+            };
+
+            await webpush.sendNotification(pushSubscription, payload);
+            successCount++;
+            console.log(`[PUSH] Successfully sent to user ${sub.userId}`);
+          } catch (error: any) {
+            failedCount++;
+            console.error(`[PUSH] Failed to send to user ${sub.userId}:`, error.message || error);
+
+            // If the subscription is no longer valid (410 Gone or 404), remove it
+            if (error.statusCode === 410 || error.statusCode === 404) {
+              failedSubscriptions.push(sub.userId);
+              console.log(`[PUSH] Removing invalid subscription for user ${sub.userId}`);
+            }
+          }
+        })
+      );
+
+      // Clean up invalid subscriptions
+      for (const userId of failedSubscriptions) {
+        await storage.removePushSubscription(userId);
+      }
+
+      // Return success with subscriber count
+      res.json({
+        success: true,
+        message: `Notification sent to ${successCount} subscriber(s)${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+        subscriberCount: successCount,
+        failedCount: failedCount
+      });
+    } catch (error) {
+      console.error("Error sending push notification:", error);
+      res.status(500).json({ message: "Failed to send notification" });
+    }
+  });
+
+  // Subscribe to push notifications
+  app.post('/api/push-subscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { subscription } = req.body;
+
+      if (!subscription || !subscription.endpoint || !subscription.keys) {
+        return res.status(400).json({ message: "Invalid subscription data" });
+      }
+
+      await storage.savePushSubscription(userId, {
+        userId,
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.keys.p256dh,
+          auth: subscription.keys.auth,
+        },
+        createdAt: new Date(),
+      });
+
+      console.log(`[PUSH] User ${userId} subscribed to push notifications`);
+      res.json({ success: true, message: "Subscribed to push notifications" });
+    } catch (error) {
+      console.error("Error saving push subscription:", error);
+      res.status(500).json({ message: "Failed to save subscription" });
+    }
+  });
+
+  // Unsubscribe from push notifications
+  app.delete('/api/push-subscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await storage.removePushSubscription(userId);
+      console.log(`[PUSH] User ${userId} unsubscribed from push notifications`);
+      res.json({ success: true, message: "Unsubscribed from push notifications" });
+    } catch (error) {
+      console.error("Error removing push subscription:", error);
+      res.status(500).json({ message: "Failed to remove subscription" });
+    }
+  });
+
+  // Check push subscription status
+  app.get('/api/push-subscription/check', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscription = await storage.getPushSubscriptionByUserId(userId);
+      res.json({ isSubscribed: !!subscription });
+    } catch (error) {
+      console.error("Error checking push subscription:", error);
+      res.status(500).json({ message: "Failed to check subscription" });
+    }
+  });
+
+  // Admin: Get all product notification subscribers (users waiting for stock)
+  app.get('/api/admin/product-notifications', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const notifications = await storage.getAllProductNotifications();
+      // Enrich with product and user info
+      const enriched = await Promise.all(
+        notifications.map(async (n) => {
+          const product = await storage.getProductById(n.productId);
+          const user = await storage.getUser(n.userId);
+          return {
+            ...n,
+            productName: product?.name || 'Unknown',
+            productStock: product?.stock || 0,
+            userName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.phoneNumber : 'Unknown',
+            userPhone: user?.phoneNumber || ''
+          };
+        })
+      );
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching product notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // Admin: Get all push notification subscribers
+  app.get('/api/admin/push-subscribers', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const subscriptions = await storage.getPushSubscriptions();
+      // Enrich with user info
+      const enriched = await Promise.all(
+        subscriptions.map(async (s) => {
+          const user = await storage.getUser(s.userId);
+          return {
+            userId: s.userId,
+            userName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.phoneNumber : 'Unknown',
+            userPhone: user?.phoneNumber || '',
+            subscribedAt: s.createdAt
+          };
+        })
+      );
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching push subscribers:", error);
+      res.status(500).json({ message: "Failed to fetch subscribers" });
+    }
+  });
+
+  // Admin Orders
+  app.get('/api/admin/orders', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { search, status } = req.query;
+      const orders = await storage.getAllOrders(search as string, status as string);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching admin orders:", error);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  // Update order status
+  app.patch('/api/admin/orders/:id/status', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const { status } = req.body;
+
+      if (!status || !['pending', 'processing', 'completed', 'cancelled'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updatedOrder = await storage.updateOrderStatus(orderId, status);
+      if (!updatedOrder) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Send push notification to the customer about status update
+      try {
+        const subscription = await storage.getPushSubscriptionByUserId(updatedOrder.userId);
+        if (subscription) {
+          const statusLabels: Record<string, { ar: string; en: string }> = {
+            pending: { ar: 'قيد الانتظار', en: 'Pending' },
+            processing: { ar: 'جاري التجهيز', en: 'Processing' },
+            completed: { ar: 'مكتمل', en: 'Completed' },
+            cancelled: { ar: 'ملغي', en: 'Cancelled' }
+          };
+
+          const payload = JSON.stringify({
+            title: `طلب #${orderId} - ${statusLabels[status].ar}`,
+            body: `تم تحديث حالة طلبك إلى: ${statusLabels[status].ar}`,
+            link: `/orders/${orderId}`
+          });
+
+          const pushSubscription = {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.keys.p256dh,
+              auth: subscription.keys.auth
+            }
+          };
+
+          await webpush.sendNotification(pushSubscription, payload);
+          console.log(`[PUSH] Sent order status notification to user ${updatedOrder.userId}`);
+        }
+      } catch (pushError) {
+        console.error("Error sending push notification to customer:", pushError);
+        // Don't fail the whole request if push fails
+      }
+
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      res.status(500).json({ message: "Failed to update order status" });
     }
   });
 
@@ -209,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/cart', async (req: any, res) => {
     try {
       // Use authenticated user ID or default guest ID
-      const userId = req.user?.claims?.sub || 'guest-user';
+      const userId = req.user?.id || 'guest-user';
       const cartItems = await storage.getCartItems(userId);
       res.json(cartItems);
     } catch (error) {
@@ -221,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/cart', async (req: any, res) => {
     try {
       // Use authenticated user ID or default guest ID
-      const userId = req.user?.claims?.sub || 'guest-user';
+      const userId = req.user?.id || 'guest-user';
       const result = insertCartItemSchema.safeParse({ ...req.body, userId });
       if (!result.success) {
         return res.status(400).json({
@@ -256,7 +619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/cart/:id', async (req: any, res) => {
     try {
       // Use authenticated user ID or default guest ID
-      const userId = req.user?.claims?.sub || 'guest-user';
+      const userId = req.user?.id || 'guest-user';
       await storage.removeFromCart(parseInt(req.params.id), userId);
       res.status(204).send();
     } catch (error) {
@@ -268,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/cart', async (req: any, res) => {
     try {
       // Use authenticated user ID or default guest ID
-      const userId = req.user?.claims?.sub || 'guest-user';
+      const userId = req.user?.id || 'guest-user';
       await storage.clearCart(userId);
       res.status(204).send();
     } catch (error) {
@@ -280,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Order routes
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { orderData, orderItems } = req.body;
 
       const orderResult = insertOrderSchema.safeParse({ ...orderData, userId });
@@ -294,9 +657,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Order must have at least one item" });
       }
 
+      // Validate stock availability before placing order (industry standard: check before commit)
+      const stockIssues: string[] = [];
+      for (const item of orderItems) {
+        const product = await storage.getProductById(item.productId);
+        if (!product) {
+          stockIssues.push(`Product ${item.productName} not found`);
+          continue;
+        }
+        if (!product.isAvailable) {
+          stockIssues.push(`${product.name} is not available`);
+          continue;
+        }
+        if ((product.stock || 0) < item.quantity) {
+          stockIssues.push(`${product.name}: Only ${product.stock || 0} in stock, requested ${item.quantity}`);
+        }
+      }
+
+      if (stockIssues.length > 0) {
+        return res.status(400).json({
+          message: "Stock validation failed",
+          issues: stockIssues
+        });
+      }
+
+      // Create the order
       const order = await storage.createOrder(orderResult.data, orderItems);
+
+      // Decrease stock for each item (industry standard: reserve stock after order creation)
+      for (const item of orderItems) {
+        await storage.decreaseProductStock(item.productId, item.quantity);
+        console.log(`[STOCK] Decreased stock for product ${item.productId} by ${item.quantity}`);
+      }
+
       await storage.clearCart(userId);
 
+      console.log(`[ORDER] Order #${order.id} created. Stock updated for ${orderItems.length} products.`);
       res.status(201).json(order);
     } catch (error) {
       console.error("Error creating order:", error);
@@ -306,7 +702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const orders = await storage.getOrdersByUser(userId);
       res.json(orders);
     } catch (error) {
@@ -317,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const order = await storage.getOrderById(parseInt(req.params.id), userId);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
@@ -329,27 +725,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User profile routes
-  app.patch('/api/profile', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const result = updateUserProfileSchema.safeParse(req.body);
-      if (!result.success) {
-        return res.status(400).json({
-          message: fromZodError(result.error).toString()
-        });
-      }
-      const user = await storage.updateUserProfile(userId, result.data);
-      res.json(user);
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      res.status(500).json({ message: "Failed to update profile" });
-    }
-  });
-
   app.post('/api/profile/upload-avatar', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { profileImageUrl } = req.body;
 
       if (!profileImageUrl) {

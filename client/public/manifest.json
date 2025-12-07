@@ -1,34 +1,110 @@
 {
-  "name": "FreshMart - Online Grocery Shopping",
-  "short_name": "FreshMart",
-  "description": "Shop fresh groceries online with easy delivery. Browse categories, add to cart, and get your groceries delivered to your doorstep.",
+  "name": "خضار آند فاكهة - Khudar And Fakha",
+  "short_name": "خضار آند فاكهة",
+  "description": "اتسوق من مجموعتنا الكبيرة من الخضار والفاكهة الطازة. توصيل سريع ومضمون لحد باب بيتك.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#229653",
+  "theme_color": "#ffffff",
+  "dir": "rtl",
+  "lang": "ar-EG",
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/favicon.png",
-      "sizes": "192x192",
+      "src": "/logo.png",
+      "sizes": "48x48",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/favicon.png",
-      "sizes": "512x512",
+      "src": "/logo.png",
+      "sizes": "72x72",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["shopping", "productivity"],
+  "shortcuts": [
+    {
+      "name": "المتجر",
+      "short_name": "تسوق",
+      "description": "تصفح المنتجات",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "السلة",
+      "short_name": "السلة",
+      "description": "عرض سلة التسوق",
+      "url": "/cart",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "حسابي",
+      "short_name": "حسابي",
+      "description": "بياناتي والطلبات",
+      "url": "/profile",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "categories": [
+    "shopping",
+    "food",
+    "lifestyle"
+  ],
   "screenshots": [
     {
-      "src": "/favicon.png",
+      "src": "/logo.png",
       "sizes": "540x720",
       "type": "image/png",
       "form_factor": "narrow"
     }
-  ]
+  ],
+  "related_applications": [],
+  "handle_links": "preferred"
 }

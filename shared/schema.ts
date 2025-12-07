@@ -44,6 +44,7 @@ export const users = pgTable("users", {
 export const categories = pgTable("categories", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: varchar("name", { length: 100 }).notNull().unique(),
+  englishName: varchar("english_name", { length: 100 }),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -52,7 +53,9 @@ export const categories = pgTable("categories", {
 export const products = pgTable("products", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: varchar("name", { length: 200 }).notNull(),
+  englishName: varchar("english_name", { length: 200 }),
   description: text("description"),
+  englishDescription: text("english_description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   imageUrl: text("image_url"),
   categoryId: integer("category_id").references(() => categories.id).notNull(),
@@ -219,4 +222,20 @@ export const updateUserProfileSchema = z.object({
 export const updatePasswordSchema = z.object({
   currentPassword: z.string().min(6),
   newPassword: z.string().min(6),
+});
+
+// Product Notifications table for out-of-stock alerts
+export const productNotifications = pgTable("product_notifications", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  productId: integer("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type InsertProductNotification = typeof productNotifications.$inferInsert;
+export type ProductNotification = typeof productNotifications.$inferSelect;
+
+export const insertProductNotificationSchema = createInsertSchema(productNotifications).omit({
+  id: true as never,
+  createdAt: true,
 });

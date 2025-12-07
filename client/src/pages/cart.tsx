@@ -2,24 +2,29 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { Trash2, ShoppingBag, ShoppingCart, Plus, Minus, X } from "lucide-react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Trash2, ShoppingBag, Plus, Minus, ArrowRight, Package, Shield, Truck, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import i18n from "@/lib/i18n";
 import type { Product } from "@shared/schema";
+import { translateContent } from "@/lib/translator";
 
 export default function Cart() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isMobile = useIsMobile();
   const { t } = useTranslation();
+  const isRTL = i18n.language === 'ar';
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  const getProductName = (product: Product) => {
+    if (i18n.language === 'en' && product.englishName) {
+      return product.englishName;
+    }
+    return translateContent(product.name, i18n.language);
+  };
 
   const { data: cartItems = [] } = useQuery<any[]>({
     queryKey: ["/api/cart"],
@@ -49,8 +54,8 @@ export default function Cart() {
     onError: (err, newTodo, context: any) => {
       queryClient.setQueryData(["/api/cart"], context?.previousCart);
       toast({
-        title: "Error",
-        description: "Failed to update cart",
+        title: t('error'),
+        description: t('error_update_cart'),
         variant: "destructive",
       });
     },
@@ -66,12 +71,31 @@ export default function Cart() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to remove item");
+      return id;
     },
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/cart"] });
+      const previousCart = queryClient.getQueryData(["/api/cart"]);
+      queryClient.setQueryData(["/api/cart"], (old: any[] = []) => {
+        return old.filter((item) => item.id !== id);
+      });
+      return { previousCart };
+    },
+    onError: (err, id, context: any) => {
+      queryClient.setQueryData(["/api/cart"], context?.previousCart);
+      toast({
+        title: t('error'),
+        description: t('error_remove_item'),
+        variant: "destructive",
+      });
+    },
+    onSuccess: (id, variables, context) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      const item = (context?.previousCart as any[])?.find(i => i.id === id);
+      const productName = item ? getProductName(item.product) : t('item');
       toast({
         title: t('removed_from_cart'),
-        description: t('item_removed_description'),
+        description: `${productName} ${t('has_been_removed')}`,
       });
     },
   });
@@ -81,93 +105,18 @@ export default function Cart() {
     0
   );
 
-  const getCartItem = (productId: number) => {
-    return cartItems.find((item: any) => item.productId === productId);
-  };
+  const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  const getCartQuantity = (productId: number) => {
-    const item = getCartItem(productId);
-    return item?.quantity || 0;
-  };
-
-  const ProductDetailsContent = ({ product }: { product: Product }) => (
-    <div className="space-y-4">
-      <div className="w-full h-64 sm:h-80 relative">
-        <img
-          src={product.imageUrl || undefined}
-          alt={product.name}
-          className="w-full h-full object-cover rounded-lg"
-        />
-      </div>
-      <div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold">{t('price')}:</span>
-            <span className="text-2xl font-bold text-primary">
-              {product.price}<span className="text-sm font-normal align-top mr-1">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold">{t('unit')}:</span>
-            <span>{t(product.unit as any)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold">{t('availability')}:</span>
-            <Badge variant={product.isAvailable ? "default" : "secondary"}>
-              {product.isAvailable ? t('in_stock') : t('out_of_stock')}
-            </Badge>
-          </div>
-        </div>
-      </div>
-      {getCartQuantity(product.id) > 0 && (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              const cartItem = getCartItem(product.id);
-              if (cartItem && getCartQuantity(product.id) > 1) {
-                updateCartMutation.mutate({
-                  id: cartItem.id,
-                  quantity: getCartQuantity(product.id) - 1,
-                });
-              } else if (cartItem) {
-                removeFromCartMutation.mutate(cartItem.id);
-              }
-            }}
-            disabled={updateCartMutation.isPending || removeFromCartMutation.isPending}
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
-          <span className="flex-1 text-center font-semibold">
-            {getCartQuantity(product.id)} {t('in_cart')}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const cartItem = getCartItem(product.id);
-              if (cartItem) {
-                updateCartMutation.mutate({
-                  id: cartItem.id,
-                  quantity: getCartQuantity(product.id) + 1,
-                });
-              }
-            }}
-            disabled={updateCartMutation.isPending}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-
+  // Empty Cart - Updated for desktop
   if (cartItems.length === 0) {
     return (
-      <div className="text-center py-16">
-        <ShoppingBag className="w-24 h-24 mx-auto text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-bold mb-2">{t('cart_empty')}</h2>
-        <p className="text-muted-foreground mb-6">{t('cart_empty_desc')}</p>
-        <Button asChild data-testid="button-shop-now">
+      <div className="min-h-[70vh] lg:min-h-[80vh] flex flex-col items-center justify-center p-6 text-center page-transition">
+        <div className="w-24 h-24 lg:w-32 lg:h-32 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center mb-6 shadow-xl">
+          <ShoppingBag className="w-12 h-12 lg:w-16 lg:h-16 text-primary" />
+        </div>
+        <h2 className="text-2xl lg:text-4xl font-bold mb-3">{t('cart_empty')}</h2>
+        <p className="text-muted-foreground mb-8 text-sm lg:text-lg max-w-md">{t('cart_empty_desc')}</p>
+        <Button asChild size="lg" className="h-12 lg:h-14 px-8 lg:px-12 rounded-full shadow-xl text-base lg:text-lg">
           <Link href="/">{t('shop_now')}</Link>
         </Button>
       </div>
@@ -175,148 +124,251 @@ export default function Cart() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 px-3 sm:px-4">
-      <h1 className="text-2xl sm:text-3xl font-bold">{t('shopping_cart')}</h1>
-
-      <div className="space-y-3 sm:space-y-4">
-        {cartItems.map((item: any) => (
-          <Card key={item.id} className="p-3 sm:p-4" data-testid={`cart-item-${item.id}`}>
-            {/* Top Row: Product Info Left, Quantity Controls Right */}
-            <div className="flex items-center justify-between gap-3 sm:gap-4 mb-2">
-              {/* Product Info Left */}
-              <div className="flex gap-3 flex-1 min-w-0">
-                <button
-                  onClick={() => setSelectedProduct(item.product)}
-                  className="flex-shrink-0 hover:opacity-70 transition-opacity cursor-pointer"
-                >
-                  <img
-                    src={item.product.imageUrl || undefined}
-                    alt={item.product.name}
-                    className="w-16 sm:w-20 h-full object-cover rounded-md"
-                  />
-                </button>
-                <div className="flex-1 min-w-0 flex flex-col">
-                  <button
-                    onClick={() => setSelectedProduct(item.product)}
-                    className="text-left hover:text-primary transition-colors w-full text-right"
-                  >
-                    <h3 className="font-semibold text-sm sm:text-base truncate" data-testid={`text-cart-item-name-${item.id}`}>
-                      {item.product.name}
-                    </h3>
-                  </button>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{t(item.product.unit as any)}</p>
-                  <p className="text-base sm:text-lg font-bold text-primary mt-1">
-                    {item.product.price}<span className="text-xs sm:text-sm font-normal align-top mr-1">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Quantity Controls Right */}
-              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 sm:h-9 sm:w-9 p-0 active:scale-95 transition-transform"
-                  onClick={() =>
-                    updateCartMutation.mutate({
-                      id: item.id,
-                      quantity: Math.max(1, item.quantity - 1),
-                    })
-                  }
-                  data-testid={`button-decrease-${item.id}`}
-                >
-                  −
-                </Button>
-                <span className="text-sm sm:text-base font-semibold w-8 text-center" data-testid={`text-quantity-${item.id}`}>
-                  {item.quantity}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 sm:h-9 sm:w-9 p-0 active:scale-95 transition-transform"
-                  onClick={() =>
-                    updateCartMutation.mutate({
-                      id: item.id,
-                      quantity: item.quantity + 1,
-                    })
-                  }
-                  data-testid={`button-increase-${item.id}`}
-                >
-                  +
-                </Button>
-              </div>
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background page-transition">
+      {/* Header - Fixed below main navbar */}
+      <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b shadow-sm w-full">
+        <div className="container mx-auto max-w-7xl px-4 lg:px-8 py-4 lg:py-5">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 lg:p-3 bg-primary/10 rounded-xl">
+              <ShoppingBag className="w-6 h-6 lg:w-7 lg:h-7 text-primary" />
             </div>
-
-            {/* Bottom Row: Total Price and Delete Button */}
-            <div className="flex items-center justify-end gap-2 sm:gap-3">
-              <div className="text-right">
-                <p className="text-sm sm:text-base font-bold whitespace-nowrap">
-                  {(parseFloat(item.product.price) * item.quantity).toFixed(2)}<span className="text-xs font-normal align-top mr-1">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 sm:h-9 sm:w-9 p-0 hover:bg-destructive/10"
-                onClick={() => removeFromCartMutation.mutate(item.id)}
-                data-testid={`button-remove-${item.id}`}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+            <div>
+              <h1 className="text-xl lg:text-3xl font-bold">{t('shopping_cart')}</h1>
+              <p className="text-sm text-muted-foreground hidden lg:block">
+                {totalItems} {isRTL ? 'منتج في سلتك' : 'items in your cart'}
+              </p>
             </div>
-          </Card>
-        ))}
+            <Badge variant="secondary" className="lg:hidden text-sm px-3 py-1 rounded-full ms-auto">
+              {totalItems}
+            </Badge>
+          </div>
+        </div>
       </div>
 
-      <Card className="p-4 sm:p-6">
-        <div className="space-y-3 sm:space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-base sm:text-xl font-semibold">{t('total')}:</span>
-            <span className="text-xl sm:text-2xl font-bold text-primary" data-testid="text-total">
-              {total.toFixed(2)}<span className="text-sm sm:text-base font-normal align-top mr-1">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
+      {/* Main Content */}
+      <div className="container mx-auto max-w-7xl px-4 lg:px-8 py-6 lg:py-10">
+        <div className="lg:grid lg:grid-cols-12 lg:gap-10">
+          {/* Cart Items - Left Column (larger on desktop) */}
+          {/* Cart Items - Left Column (larger on desktop) */}
+          <div className="lg:col-span-8 space-y-3 lg:space-y-6 pb-40 lg:pb-8">
+            <div className="hidden lg:flex items-center justify-between pb-4 border-b">
+              <h2 className="text-lg font-semibold text-muted-foreground">
+                {isRTL ? 'منتجاتك' : 'Your Items'}
+              </h2>
+              <span className="text-sm text-muted-foreground">{totalItems} {isRTL ? 'منتج' : 'items'}</span>
+            </div>
+
+            {cartItems.map((item: any, index) => (
+              <Card
+                key={item.id}
+                className="p-4 lg:p-6 border-0 lg:border shadow-md lg:shadow-lg hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex gap-4 lg:gap-6">
+                  {/* Product Image */}
+                  <button
+                    onClick={() => setSelectedProduct(item.product)}
+                    className="w-24 h-24 lg:w-36 lg:h-36 flex-shrink-0 rounded-xl lg:rounded-2xl overflow-hidden bg-gradient-to-br from-muted to-muted/50 hover:ring-4 ring-primary/20 transition-all"
+                  >
+                    {(item.product.imageUrl?.startsWith('http') || item.product.imageUrl?.startsWith('/')) ? (
+                      <img
+                        src={item.product.imageUrl}
+                        alt={getProductName(item.product)}
+                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted/50 text-4xl lg:text-6xl">
+                        {item.product.imageUrl || <Package className="w-10 h-10 lg:w-14 lg:h-14 text-muted-foreground" />}
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Product Info */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                    <div>
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <h3 className="font-bold text-base lg:text-xl leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
+                            {getProductName(item.product)}
+                          </h3>
+                          <p className="text-sm lg:text-base text-muted-foreground mt-1">{t(item.product.unit as any)}</p>
+                        </div>
+                        <button
+                          onClick={() => removeFromCartMutation.mutate(item.id)}
+                          className="p-2 lg:p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4 lg:mt-6">
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-3 bg-muted/50 rounded-xl p-1.5">
+                        <button
+                          onClick={() => {
+                            if (item.quantity > 1) {
+                              updateCartMutation.mutate({ id: item.id, quantity: item.quantity - 1 });
+                            } else {
+                              removeFromCartMutation.mutate(item.id);
+                            }
+                          }}
+                          className="h-10 w-10 lg:h-12 lg:w-12 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-md hover:shadow-lg hover:bg-muted active:scale-95 transition-all font-bold text-lg"
+                        >
+                          <Minus className="w-5 h-5" />
+                        </button>
+                        <span className="font-bold w-10 lg:w-12 text-center text-lg lg:text-xl">{item.quantity}</span>
+                        <button
+                          onClick={() => updateCartMutation.mutate({ id: item.id, quantity: item.quantity + 1 })}
+                          className="h-10 w-10 lg:h-12 lg:w-12 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-md hover:shadow-lg hover:bg-muted active:scale-95 transition-all font-bold text-lg"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Price */}
+                      <div className="text-end">
+                        <p className="font-bold text-primary text-xl lg:text-2xl">
+                          {(parseFloat(item.product.price) * item.quantity).toFixed(0)}
+                          <span className="text-sm lg:text-base font-medium ms-1">{isRTL ? 'جنيه' : 'EGP'}</span>
+                        </p>
+                        {item.quantity > 1 && (
+                          <p className="text-xs lg:text-sm text-muted-foreground">
+                            {item.product.price} × {item.quantity}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop Order Summary - Right Sidebar */}
+          <div className="hidden lg:block lg:col-span-4">
+            <div className="sticky top-28 space-y-6">
+              {/* Order Summary Card */}
+              <Card className="p-8 border-0 shadow-2xl bg-white dark:bg-slate-900 rounded-3xl">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl">
+                    <ShoppingBag className="w-7 h-7 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-bold">{t('order_summary') || 'Order Summary'}</h2>
+                </div>
+
+                <div className="space-y-5 mb-8">
+                  <div className="flex justify-between text-base">
+                    <span className="text-muted-foreground">{t('subtotal')} ({totalItems} {isRTL ? 'منتج' : 'items'})</span>
+                    <span className="font-semibold">{total.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}</span>
+                  </div>
+                  <div className="flex justify-between text-base">
+                    <span className="text-muted-foreground">{t('shipping')}</span>
+                    <span className="text-green-600 font-semibold">{t('free')}</span>
+                  </div>
+                  <div className="border-t-2 border-dashed pt-5 flex justify-between">
+                    <span className="text-xl font-bold">{t('total')}</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {total.toFixed(0)} <span className="text-base font-medium">{isRTL ? 'جنيه' : 'EGP'}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <Button className="w-full h-14 text-lg font-semibold shadow-xl hover:shadow-primary/30 transition-all rounded-2xl group" asChild>
+                  <Link href="/checkout">
+                    {t('checkout')}
+                    <ArrowRight className={`w-6 h-6 ms-3 group-hover:translate-x-2 transition-transform ${isRTL ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
+                  </Link>
+                </Button>
+              </Card>
+
+              {/* Trust Badges */}
+              <Card className="p-6 border-0 shadow-lg bg-gradient-to-br from-muted/50 to-muted/20 rounded-2xl">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="space-y-2">
+                    <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                      <Truck className="w-6 h-6 text-green-600" />
+                    </div>
+                    <p className="text-xs font-medium">{isRTL ? 'توصيل مجاني' : 'Free Delivery'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                      <Shield className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <p className="text-xs font-medium">{isRTL ? 'شراء آمن' : 'Secure'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="mx-auto w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <p className="text-xs font-medium">{isRTL ? 'دفع سهل' : 'Easy Pay'}</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Fixed Bottom Checkout Bar */}
+      {/* Mobile Fixed Bottom Checkout Bar - Compact */}
+      {/* Mobile Fixed Bottom Checkout Bar - Polished */}
+      <div className="lg:hidden fixed bottom-16 left-0 right-0 p-4 bg-background/80 backdrop-blur-3xl border-t border-white/20 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-40 safe-area-pb">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col">
+            <span className="text-xs text-muted-foreground">{t('total')}</span>
+            <span className="text-xl font-bold text-primary">
+              {total.toFixed(0)} <span className="text-sm font-medium">{isRTL ? 'جنيه' : 'EGP'}</span>
             </span>
           </div>
-          <Button asChild className="w-full text-sm sm:text-base" size="lg" data-testid="button-checkout">
-            <Link href="/checkout">{t('proceed_to_checkout')}</Link>
+          <Button className="flex-1 h-12 text-base font-bold rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary text-primary-foreground" asChild>
+            <Link href="/checkout">
+              {t('checkout')}
+              <ArrowRight className={`w-5 h-5 ms-2 ${isRTL ? 'rotate-180' : ''}`} />
+            </Link>
           </Button>
         </div>
-      </Card>
+      </div>
 
-      {/* Product Details Modal */}
-      {isMobile ? (
-        <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-          <DrawerContent>
-            <DrawerHeader className="text-left">
-              <DrawerTitle>{selectedProduct?.name}</DrawerTitle>
-              <DrawerDescription>
-                {selectedProduct?.description}
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="p-4 pb-8">
-              {selectedProduct && <ProductDetailsContent product={selectedProduct} />}
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-          <DialogContent className="overflow-y-auto max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-2xl">{selectedProduct?.name}</DialogTitle>
-              <DialogDescription className="text-base mb-4">
-                {selectedProduct?.description}
-              </DialogDescription>
-              <button
-                onClick={() => setSelectedProduct(null)}
-                className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-              >
-                <X className="w-4 h-4" />
-                <span className="sr-only">Close</span>
-              </button>
-            </DialogHeader>
-            {selectedProduct && <ProductDetailsContent product={selectedProduct} />}
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Product Details Drawer */}
+      <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+        <DrawerContent className="bg-background/95 backdrop-blur-xl border-t-0 rounded-t-[2rem] max-h-[80vh]">
+          <DrawerHeader className="pb-0">
+            <DrawerTitle className="text-xl font-bold">
+              {selectedProduct && getProductName(selectedProduct)}
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 pb-8 overflow-y-auto">
+            {selectedProduct && (
+              <div className="space-y-4">
+                <div className="w-full h-48 rounded-2xl overflow-hidden bg-muted">
+                  {(selectedProduct.imageUrl?.startsWith('http') || selectedProduct.imageUrl?.startsWith('/')) ? (
+                    <img
+                      src={selectedProduct.imageUrl}
+                      alt={getProductName(selectedProduct)}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-6xl">
+                      {selectedProduct.imageUrl}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{t('price')}</span>
+                  <span className="text-2xl font-bold text-primary">
+                    {selectedProduct.price} <span className="text-sm">{isRTL ? 'جنيه' : 'EGP'}</span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{t('unit')}</span>
+                  <Badge variant="outline">{t(selectedProduct.unit as any)}</Badge>
+                </div>
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
