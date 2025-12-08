@@ -353,6 +353,17 @@
     @apply hidden;
   }
 
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));

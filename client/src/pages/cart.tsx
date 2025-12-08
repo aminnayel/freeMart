@@ -11,6 +11,15 @@ import { Link } from "wouter";
 import i18n from "@/lib/i18n";
 import type { Product } from "@shared/schema";
 import { translateContent } from "@/lib/translator";
+import { useAuth } from "@/hooks/useAuth";
+import { useAuthModal } from "@/components/auth/auth-modal-context";
+import { useLocation } from "wouter";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ProductDetailsContent } from "@/components/shop/product-details-content";
+import { Bell } from "lucide-react";
+import { subscribeToPushNotifications } from "@/lib/push-notifications";
+import { isUnauthorizedError } from "@/lib/authUtils";
 
 export default function Cart() {
   const { toast } = useToast();
@@ -18,12 +27,133 @@ export default function Cart() {
   const { t } = useTranslation();
   const isRTL = i18n.language === 'ar';
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const { user } = useAuth();
+  const { openLogin } = useAuthModal();
+  const [, setLocation] = useLocation();
+  const isMobile = useIsMobile();
+  const [notifiedProducts, setNotifiedProducts] = useState<Set<number>>(new Set());
 
   const getProductName = (product: Product) => {
     if (i18n.language === 'en' && product.englishName) {
       return product.englishName;
     }
     return translateContent(product.name, i18n.language);
+  };
+
+  const notifyMeMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId }),
+      });
+      if (!res.ok) throw new Error("Failed to subscribe");
+      return { ...await res.json(), productId };
+    },
+    onSuccess: (data) => {
+      setNotifiedProducts(prev => new Set(prev).add(data.productId));
+      if (data.message === "Already subscribed") {
+        toast({ title: t('already_subscribed'), description: t('already_subscribed_desc') });
+      } else {
+        toast({ title: t('subscribed'), description: t('subscribed_desc') });
+      }
+    },
+    onError: () => {
+      toast({ title: t('error'), description: t('error_subscribe_notifications'), variant: "destructive" });
+    },
+  });
+
+  const addToCartMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ productId, quantity: 1 }),
+      });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`${res.status}: ${error}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      // We don't need to show a toast here as it's just adding back from the modal
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: t('login_required'),
+          description: t('login_to_add_cart'),
+          variant: "destructive",
+        });
+        openLogin();
+        return;
+      }
+      toast({ title: t('error'), description: t('error_add_cart'), variant: "destructive" });
+    },
+  });
+
+  const getCartItem = (productId: number) => {
+    return cartItems.find((item: any) => item.product.id === productId);
+  };
+
+  const getCartQuantity = (productId: number) => {
+    const item = getCartItem(productId);
+    return item?.quantity || 0;
+  };
+
+  const handleAddToCart = (productId: number) => {
+    addToCartMutation.mutate(productId);
+  };
+
+  const handleIncrement = (productId: number) => {
+    const cartItem = getCartItem(productId);
+    if (cartItem) {
+      updateCartMutation.mutate({ id: cartItem.id, quantity: cartItem.quantity + 1 });
+    }
+  };
+
+  const handleDecrement = (productId: number) => {
+    const cartItem = getCartItem(productId);
+    if (cartItem) {
+      if (cartItem.quantity === 1) {
+        removeFromCartMutation.mutate(cartItem.id);
+      } else {
+        updateCartMutation.mutate({ id: cartItem.id, quantity: cartItem.quantity - 1 });
+      }
+    }
+  };
+
+  const handleNotifyMe = async (productId: number) => {
+    if (!user) {
+      toast({
+        title: t('login_required'),
+        description: t('login_to_notify'),
+        variant: "destructive",
+      });
+      openLogin();
+      return;
+    }
+    if ("Notification" in window) {
+      if (Notification.permission === "default") {
+        const result = await Notification.requestPermission();
+        if (result === "granted") {
+          await subscribeToPushNotifications();
+        }
+      } else if (Notification.permission === "granted") {
+        await subscribeToPushNotifications();
+      } else if (Notification.permission === "denied") {
+        toast({
+          title: t('notifications_blocked'),
+          description: t('enable_notifications_settings'),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    notifyMeMutation.mutate(productId);
   };
 
   const { data: cartItems = [] } = useQuery<any[]>({
@@ -162,14 +292,14 @@ export default function Cart() {
             {cartItems.map((item: any, index) => (
               <Card
                 key={item.id}
-                className="border-0 shadow-md lg:shadow-lg hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden"
+                className="border-0 shadow-md lg:shadow-lg hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden cursor-pointer"
                 style={{ animationDelay: `${index * 50}ms` }}
+                onClick={() => setSelectedProduct(item.product)}
               >
                 <div className="flex">
                   {/* Product Image - Full Height */}
-                  <button
-                    onClick={() => setSelectedProduct(item.product)}
-                    className="w-28 sm:w-32 lg:w-40 flex-shrink-0 overflow-hidden bg-gradient-to-br from-muted to-muted/50 hover:opacity-90 transition-all relative"
+                  <div
+                    className="w-28 sm:w-32 lg:w-40 flex-shrink-0 overflow-hidden bg-gradient-to-br from-muted to-muted/50 relative"
                   >
                     {(item.product.imageUrl?.startsWith('http') || item.product.imageUrl?.startsWith('/')) ? (
                       <img
@@ -182,20 +312,23 @@ export default function Cart() {
                         {item.product.imageUrl || <Package className="w-10 h-10 lg:w-12 lg:h-12 text-muted-foreground" />}
                       </div>
                     )}
-                  </button>
+                  </div>
 
                   {/* Product Info */}
                   <div className="flex-1 min-w-0 p-4 lg:p-5 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1">
-                          <h3 className="font-bold text-sm lg:text-lg leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
+                          <h3 className="font-bold text-sm lg:text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                             {getProductName(item.product)}
                           </h3>
                           <p className="text-xs lg:text-sm text-muted-foreground mt-0.5">{t(item.product.unit as any)}</p>
                         </div>
                         <button
-                          onClick={() => removeFromCartMutation.mutate(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFromCartMutation.mutate(item.id);
+                          }}
                           className="p-1.5 -mt-1 -me-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
                         >
                           <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
@@ -205,9 +338,13 @@ export default function Cart() {
 
                     <div className="flex items-center justify-between mt-3 lg:mt-4">
                       {/* Quantity Controls */}
-                      <div className="flex items-center gap-2 bg-primary/10 rounded-xl p-1">
+                      <div
+                        className="flex items-center gap-2 bg-primary/10 rounded-xl p-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (item.quantity > 1) {
                               updateCartMutation.mutate({ id: item.id, quantity: item.quantity - 1 });
                             } else {
@@ -220,7 +357,10 @@ export default function Cart() {
                         </button>
                         <span className="font-bold w-8 lg:w-10 text-center text-base lg:text-lg text-primary">{item.quantity}</span>
                         <button
-                          onClick={() => updateCartMutation.mutate({ id: item.id, quantity: item.quantity + 1 })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateCartMutation.mutate({ id: item.id, quantity: item.quantity + 1 });
+                          }}
                           className="h-8 w-8 lg:h-10 lg:w-10 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md active:scale-95 transition-all"
                         >
                           <Plus className="w-4 h-4" />
@@ -275,11 +415,15 @@ export default function Cart() {
                   </div>
                 </div>
 
-                <Button className="w-full h-14 text-lg font-semibold shadow-xl hover:shadow-primary/30 transition-all rounded-2xl group" asChild>
-                  <Link href="/checkout">
-                    {t('checkout')}
-                    <ArrowRight className={`w-6 h-6 ms-3 group-hover:translate-x-2 transition-transform ${isRTL ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
-                  </Link>
+                <Button
+                  className="w-full h-14 text-lg font-semibold shadow-xl hover:shadow-primary/30 transition-all rounded-2xl group"
+                  onClick={() => {
+                    if (!user) openLogin('/checkout');
+                    else setLocation('/checkout');
+                  }}
+                >
+                  {t('checkout')}
+                  <ArrowRight className={`w-6 h-6 ms-3 group-hover:translate-x-2 transition-transform ${isRTL ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
                 </Button>
               </Card>
 
@@ -322,54 +466,60 @@ export default function Cart() {
               {total.toFixed(0)} <span className="text-sm font-medium">{isRTL ? 'جنيه' : 'EGP'}</span>
             </span>
           </div>
-          <Button className="flex-1 h-12 text-base font-bold rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary text-primary-foreground" asChild>
-            <Link href="/checkout">
-              {t('checkout')}
-              <ArrowRight className={`w-5 h-5 ms-2 ${isRTL ? 'rotate-180' : ''}`} />
-            </Link>
+          <Button
+            className="flex-1 h-12 text-base font-bold rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary text-primary-foreground"
+            onClick={() => {
+              if (!user) openLogin('/checkout');
+              else setLocation('/checkout');
+            }}
+          >
+            {t('checkout')}
+            <ArrowRight className={`w-5 h-5 ms-2 ${isRTL ? 'rotate-180' : ''}`} />
           </Button>
         </div>
       </div>
 
       {/* Product Details Drawer */}
-      <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-        <DrawerContent className="bg-background/95 backdrop-blur-xl border-t-0 rounded-t-[2rem] max-h-[80vh]">
-          <DrawerHeader className="pb-0">
-            <DrawerTitle className="text-xl font-bold">
-              {selectedProduct && getProductName(selectedProduct)}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="p-4 pb-8 overflow-y-auto">
-            {selectedProduct && (
-              <div className="space-y-4">
-                <div className="w-full h-48 rounded-2xl overflow-hidden bg-muted">
-                  {(selectedProduct.imageUrl?.startsWith('http') || selectedProduct.imageUrl?.startsWith('/')) ? (
-                    <img
-                      src={selectedProduct.imageUrl}
-                      alt={getProductName(selectedProduct)}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-6xl">
-                      {selectedProduct.imageUrl}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t('price')}</span>
-                  <span className="text-2xl font-bold text-primary">
-                    {selectedProduct.price} <span className="text-sm">{isRTL ? 'جنيه' : 'EGP'}</span>
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t('unit')}</span>
-                  <Badge variant="outline">{t(selectedProduct.unit as any)}</Badge>
-                </div>
-              </div>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {/* Product Details Modal/Drawer */}
+      {isMobile ? (
+        <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+          <DrawerContent className="max-h-[90vh]">
+            <div className="overflow-y-auto p-6">
+              {selectedProduct && <ProductDetailsContent
+                product={selectedProduct}
+                getCartQuantity={getCartQuantity}
+                handleAddToCart={handleAddToCart}
+                handleIncrement={handleIncrement}
+                handleDecrement={handleDecrement}
+                handleNotifyMe={handleNotifyMe}
+                notifiedProducts={notifiedProducts}
+                isRTL={isRTL}
+                t={t}
+                isNotifyPending={notifyMeMutation.isPending}
+                isAddPending={addToCartMutation.isPending}
+              />}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+          <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden">
+            {selectedProduct && <ProductDetailsContent
+              product={selectedProduct}
+              getCartQuantity={getCartQuantity}
+              handleAddToCart={handleAddToCart}
+              handleIncrement={handleIncrement}
+              handleDecrement={handleDecrement}
+              handleNotifyMe={handleNotifyMe}
+              notifiedProducts={notifiedProducts}
+              isRTL={isRTL}
+              t={t}
+              isNotifyPending={notifyMeMutation.isPending}
+              isAddPending={addToCartMutation.isPending}
+            />}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

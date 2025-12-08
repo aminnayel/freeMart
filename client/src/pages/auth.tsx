@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { Loader2, Phone, Lock, User, ShoppingBag, Sparkles } from "lucide-react";
+import { Loader2, Phone, Lock, User, ShoppingBag, Sparkles, Truck, Shield } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -113,82 +113,92 @@ export default function AuthPage() {
 
     return (
         <div
-            className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10 relative overflow-hidden"
+            className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-primary/5 dark:from-slate-950 dark:via-slate-900 dark:to-primary/10 relative overflow-hidden px-4 py-8"
             dir={isRTL ? "rtl" : "ltr"}
         >
-            {/* Decorative Background Elements */}
+            {/* Animated Background Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/15 rounded-full blur-3xl" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
+                <div className="absolute -top-32 -right-32 w-96 h-96 bg-gradient-to-br from-primary/30 to-primary/5 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-tr from-primary/20 to-transparent rounded-full blur-3xl" />
+                <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse delay-1000" />
+                {/* Decorative grid pattern */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]" />
             </div>
 
-            <div className="w-full max-w-md p-4 relative z-10 animate-in fade-in zoom-in-95 duration-500">
-                {/* Main Card */}
-                <div className="bg-card/80 backdrop-blur-xl border border-border/50 shadow-2xl rounded-3xl p-6 md:p-8">
-                    {/* App Header */}
-                    <div className="text-center space-y-3 mb-8">
-                        {/* Logo */}
-                        <div className="flex justify-center mb-4">
-                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30 p-2">
+            <div className="w-full max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Logo & Branding */}
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center mb-6">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-primary/20 rounded-3xl blur-xl scale-150" />
+                            <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 shadow-2xl shadow-primary/20 flex items-center justify-center p-3 border border-white/50">
                                 <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                            {t('app_name')}
-                        </h1>
-                        <p className="text-muted-foreground text-sm">{t('app_tagline')}</p>
                     </div>
+                    <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 dark:from-white dark:via-slate-200 dark:to-white bg-clip-text text-transparent">
+                        {t('app_name')}
+                    </h1>
+                    <p className="text-muted-foreground mt-2 text-sm">{t('app_tagline')}</p>
+                </div>
 
+                {/* Main Auth Card */}
+                <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-black/20 rounded-3xl p-6 md:p-8">
                     <Tabs defaultValue="login" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50 p-1.5 h-12 rounded-xl">
+                        <TabsList className="grid w-full grid-cols-2 mb-8 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 h-14 rounded-2xl">
                             <TabsTrigger
                                 value="login"
-                                className="rounded-lg text-sm font-bold transition-all data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary"
+                                className="rounded-xl text-sm font-bold transition-all duration-300 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg data-[state=active]:text-primary h-full"
                             >
                                 {t('login')}
                             </TabsTrigger>
                             <TabsTrigger
                                 value="register"
-                                className="rounded-lg text-sm font-bold transition-all data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary"
+                                className="rounded-xl text-sm font-bold transition-all duration-300 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg data-[state=active]:text-primary h-full"
                             >
                                 {t('register')}
                             </TabsTrigger>
                         </TabsList>
 
                         {/* Login Tab */}
-                        <TabsContent value="login" className="space-y-5 focus-visible:ring-0 outline-none">
-                            <div className="flex flex-col items-center justify-center text-center space-y-1">
-                                <h2 className="text-xl font-bold">{t('welcome_back')}</h2>
-                                <p className="text-sm text-muted-foreground">{t('login_desc')}</p>
+                        <TabsContent value="login" className="space-y-6 focus-visible:ring-0 outline-none mt-0">
+                            <div className="text-center space-y-2">
+                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                    {isRTL ? 'مرحباً بعودتك' : 'Welcome Back'}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {isRTL ? 'سجّل دخولك للمتابعة' : 'Sign in to continue shopping'}
+                                </p>
                             </div>
 
                             <Form {...loginForm}>
-                                <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
+                                <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-5">
                                     <FormField
                                         control={loginForm.control}
                                         name="phoneNumber"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="font-semibold">{t('phone_number')}</FormLabel>
+                                                <FormLabel className={cn("font-semibold text-slate-700 dark:text-slate-300", isRTL && "block text-right")}>{t('phone_number')}</FormLabel>
                                                 <FormControl>
-                                                    <div className="relative">
-                                                        <Phone className={cn(
-                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
-                                                            isRTL ? "right-4" : "left-4"
-                                                        )} />
+                                                    <div className="relative group">
+                                                        <div className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-focus-within:bg-primary group-focus-within:text-white",
+                                                            isRTL ? "right-1.5" : "left-1.5"
+                                                        )}>
+                                                            <Phone className="h-4 w-4" />
+                                                        </div>
                                                         <Input
                                                             placeholder="01xxxxxxxxx"
                                                             {...field}
                                                             className={cn(
-                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
-                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                                "h-14 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-2xl text-base",
+                                                                isRTL ? "pr-14 pl-4 text-right" : "pl-14 pr-4"
                                                             )}
                                                             style={{ direction: 'ltr', textAlign: isRTL ? 'right' : 'left' }}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage />
+                                                <FormMessage className={isRTL ? "text-right" : ""} />
                                             </FormItem>
                                         )}
                                     />
@@ -197,35 +207,37 @@ export default function AuthPage() {
                                         name="password"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="font-semibold">{t('password')}</FormLabel>
+                                                <FormLabel className={cn("font-semibold text-slate-700 dark:text-slate-300", isRTL && "block text-right")}>{t('password')}</FormLabel>
                                                 <FormControl>
-                                                    <div className="relative">
-                                                        <Lock className={cn(
-                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
-                                                            isRTL ? "right-4" : "left-4"
-                                                        )} />
+                                                    <div className="relative group">
+                                                        <div className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-focus-within:bg-primary group-focus-within:text-white",
+                                                            isRTL ? "right-1.5" : "left-1.5"
+                                                        )}>
+                                                            <Lock className="h-4 w-4" />
+                                                        </div>
                                                         <Input
                                                             type="password"
                                                             placeholder="••••••••"
                                                             {...field}
                                                             className={cn(
-                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
-                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                                "h-14 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-2xl text-base",
+                                                                isRTL ? "pr-14 pl-4 text-right" : "pl-14 pr-4"
                                                             )}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage />
+                                                <FormMessage className={isRTL ? "text-right" : ""} />
                                             </FormItem>
                                         )}
                                     />
                                     <Button
                                         type="submit"
                                         size="lg"
-                                        className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all mt-2"
+                                        className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-xl shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                                         disabled={loginMutation.isPending}
                                     >
-                                        {loginMutation.isPending && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+                                        {loginMutation.isPending && <Loader2 className="h-5 w-5 animate-spin me-2" />}
                                         {t('login')}
                                     </Button>
                                 </form>
@@ -233,10 +245,14 @@ export default function AuthPage() {
                         </TabsContent>
 
                         {/* Register Tab */}
-                        <TabsContent value="register" className="space-y-5 focus-visible:ring-0 outline-none">
-                            <div className="flex flex-col items-center justify-center text-center space-y-1">
-                                <h2 className="text-xl font-bold">{t('create_account')}</h2>
-                                <p className="text-sm text-muted-foreground">{t('register_desc')}</p>
+                        <TabsContent value="register" className="space-y-6 focus-visible:ring-0 outline-none mt-0">
+                            <div className="text-center space-y-2">
+                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                    {isRTL ? 'إنشاء حساب جديد' : 'Create Account'}
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {isRTL ? 'سجّل الآن وابدأ التسوق' : 'Join us and start shopping'}
+                                </p>
                             </div>
 
                             <Form {...registerForm}>
@@ -247,14 +263,17 @@ export default function AuthPage() {
                                             name="firstName"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="font-semibold">{t('first_name')}</FormLabel>
+                                                    <FormLabel className={cn("font-semibold text-slate-700 dark:text-slate-300", isRTL && "block text-right")}>{t('first_name')}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             {...field}
-                                                            className="h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl"
+                                                            className={cn(
+                                                                "h-12 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-xl",
+                                                                isRTL && "text-right"
+                                                            )}
                                                         />
                                                     </FormControl>
-                                                    <FormMessage />
+                                                    <FormMessage className={isRTL ? "text-right" : ""} />
                                                 </FormItem>
                                             )}
                                         />
@@ -263,14 +282,17 @@ export default function AuthPage() {
                                             name="lastName"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="font-semibold">{t('last_name')}</FormLabel>
+                                                    <FormLabel className={cn("font-semibold text-slate-700 dark:text-slate-300", isRTL && "block text-right")}>{t('last_name')}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             {...field}
-                                                            className="h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl"
+                                                            className={cn(
+                                                                "h-12 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-xl",
+                                                                isRTL && "text-right"
+                                                            )}
                                                         />
                                                     </FormControl>
-                                                    <FormMessage />
+                                                    <FormMessage className={isRTL ? "text-right" : ""} />
                                                 </FormItem>
                                             )}
                                         />
@@ -280,25 +302,27 @@ export default function AuthPage() {
                                         name="phoneNumber"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="font-semibold">{t('phone_number')}</FormLabel>
+                                                <FormLabel className={cn("font-semibold text-slate-700 dark:text-slate-300", isRTL && "block text-right")}>{t('phone_number')}</FormLabel>
                                                 <FormControl>
-                                                    <div className="relative">
-                                                        <Phone className={cn(
-                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
-                                                            isRTL ? "right-4" : "left-4"
-                                                        )} />
+                                                    <div className="relative group">
+                                                        <div className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-focus-within:bg-primary group-focus-within:text-white",
+                                                            isRTL ? "right-1.5" : "left-1.5"
+                                                        )}>
+                                                            <Phone className="h-4 w-4" />
+                                                        </div>
                                                         <Input
                                                             placeholder="01xxxxxxxxx"
                                                             {...field}
                                                             className={cn(
-                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
-                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                                "h-14 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-2xl text-base",
+                                                                isRTL ? "pr-14 pl-4 text-right" : "pl-14 pr-4"
                                                             )}
                                                             style={{ direction: 'ltr', textAlign: isRTL ? 'right' : 'left' }}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage />
+                                                <FormMessage className={isRTL ? "text-right" : ""} />
                                             </FormItem>
                                         )}
                                     />
@@ -307,35 +331,37 @@ export default function AuthPage() {
                                         name="password"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="font-semibold">{t('password')}</FormLabel>
+                                                <FormLabel className={cn("font-semibold text-slate-700 dark:text-slate-300", isRTL && "block text-right")}>{t('password')}</FormLabel>
                                                 <FormControl>
-                                                    <div className="relative">
-                                                        <Lock className={cn(
-                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
-                                                            isRTL ? "right-4" : "left-4"
-                                                        )} />
+                                                    <div className="relative group">
+                                                        <div className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-focus-within:bg-primary group-focus-within:text-white",
+                                                            isRTL ? "right-1.5" : "left-1.5"
+                                                        )}>
+                                                            <Lock className="h-4 w-4" />
+                                                        </div>
                                                         <Input
                                                             type="password"
                                                             placeholder="••••••••"
                                                             {...field}
                                                             className={cn(
-                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
-                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                                "h-14 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-2xl text-base",
+                                                                isRTL ? "pr-14 pl-4 text-right" : "pl-14 pr-4"
                                                             )}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage />
+                                                <FormMessage className={isRTL ? "text-right" : ""} />
                                             </FormItem>
                                         )}
                                     />
                                     <Button
                                         type="submit"
                                         size="lg"
-                                        className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all mt-2"
+                                        className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-xl shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] mt-2"
                                         disabled={registerMutation.isPending}
                                     >
-                                        {registerMutation.isPending && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+                                        {registerMutation.isPending && <Loader2 className="h-5 w-5 animate-spin me-2" />}
                                         {t('register')}
                                     </Button>
                                 </form>
@@ -344,19 +370,31 @@ export default function AuthPage() {
                     </Tabs>
                 </div>
 
-                {/* Features */}
-                <div className="mt-6 grid grid-cols-3 gap-3">
-                    <div className="text-center p-3 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/30">
-                        <ShoppingBag className="w-5 h-5 mx-auto mb-1.5 text-primary" />
-                        <p className="text-xs font-medium text-muted-foreground">{t('easy_shopping')}</p>
+                {/* Trust Badges */}
+                <div className="mt-8 grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-lg shadow-slate-200/20 dark:shadow-black/10 transition-transform hover:scale-105">
+                        <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Truck className="w-5 h-5 text-primary" />
+                        </div>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                            {isRTL ? 'توصيل سريع' : 'Fast Delivery'}
+                        </p>
                     </div>
-                    <div className="text-center p-3 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/30">
-                        <Sparkles className="w-5 h-5 mx-auto mb-1.5 text-primary" />
-                        <p className="text-xs font-medium text-muted-foreground">{t('fast_delivery')}</p>
+                    <div className="text-center p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-lg shadow-slate-200/20 dark:shadow-black/10 transition-transform hover:scale-105">
+                        <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-primary" />
+                        </div>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                            {isRTL ? 'دفع آمن' : 'Secure Pay'}
+                        </p>
                     </div>
-                    <div className="text-center p-3 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/30">
-                        <Lock className="w-5 h-5 mx-auto mb-1.5 text-primary" />
-                        <p className="text-xs font-medium text-muted-foreground">{t('secure_payment')}</p>
+                    <div className="text-center p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-lg shadow-slate-200/20 dark:shadow-black/10 transition-transform hover:scale-105">
+                        <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-primary" />
+                        </div>
+                        <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                            {isRTL ? 'جودة عالية' : 'Quality'}
+                        </p>
                     </div>
                 </div>
             </div>

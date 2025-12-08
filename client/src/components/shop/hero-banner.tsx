@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Banner {
@@ -29,6 +28,11 @@ export function HeroBanner({
 }: HeroBannerProps) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStartX, setDragStartX] = useState(0);
+    const [dragDelta, setDragDelta] = useState(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const SWIPE_THRESHOLD = 50;
 
     // Auto-play
     useEffect(() => {
@@ -45,118 +49,215 @@ export function HeroBanner({
         setActiveIndex(index);
     };
 
-    const goToPrev = () => {
+    const goToPrev = useCallback(() => {
         setActiveIndex((prev) => (prev - 1 + banners.length) % banners.length);
-    };
+    }, [banners.length]);
 
-    const goToNext = () => {
+    const goToNext = useCallback(() => {
         setActiveIndex((prev) => (prev + 1) % banners.length);
-    };
+    }, [banners.length]);
+
+    // Handle drag/swipe start
+    const handleDragStart = useCallback((clientX: number) => {
+        setIsDragging(true);
+        setDragStartX(clientX);
+        setDragDelta(0);
+        setIsPaused(true);
+    }, []);
+
+    // Handle drag/swipe move
+    const handleDragMove = useCallback((clientX: number) => {
+        if (!isDragging) return;
+        const delta = clientX - dragStartX;
+        setDragDelta(delta);
+    }, [isDragging, dragStartX]);
+
+    // Handle drag/swipe end
+    const handleDragEnd = useCallback(() => {
+        if (!isDragging) return;
+
+        setIsDragging(false);
+
+        if (Math.abs(dragDelta) > SWIPE_THRESHOLD) {
+            // In RTL: swipe right (positive) = next, swipe left (negative) = prev
+            // In LTR: swipe left (negative) = next, swipe right (positive) = prev
+            if (isRTL) {
+                dragDelta > 0 ? goToNext() : goToPrev();
+            } else {
+                dragDelta < 0 ? goToNext() : goToPrev();
+            }
+        }
+
+        setDragDelta(0);
+        setTimeout(() => setIsPaused(false), 1000);
+    }, [isDragging, dragDelta, isRTL, goToPrev, goToNext]);
+
+    // Touch event handlers
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        handleDragStart(e.touches[0].clientX);
+    }, [handleDragStart]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        handleDragMove(e.touches[0].clientX);
+    }, [handleDragMove]);
+
+    const handleTouchEnd = useCallback(() => {
+        handleDragEnd();
+    }, [handleDragEnd]);
+
+    // Mouse event handlers
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        handleDragStart(e.clientX);
+    }, [handleDragStart]);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        handleDragMove(e.clientX);
+    }, [handleDragMove]);
+
+    const handleMouseUp = useCallback(() => {
+        handleDragEnd();
+    }, [handleDragEnd]);
+
+    const handleMouseLeave = useCallback(() => {
+        if (isDragging) {
+            handleDragEnd();
+        }
+        setIsPaused(false);
+    }, [isDragging, handleDragEnd]);
 
     if (banners.length === 0) return null;
 
-    const currentBanner = banners[activeIndex];
+    // Calculate transform for gallery effect
+    const getTranslateX = () => {
+        const containerWidth = containerRef.current?.offsetWidth || 300;
+        const dragPercent = (dragDelta / containerWidth) * 100;
+
+        if (isRTL) {
+            // In RTL, items ordered [2][1][0] starting from right.
+            // To see [1] (left of 0), we move Right (positive).
+            return (activeIndex * 100) + dragPercent;
+        }
+
+        // In LTR, items ordered [0][1][2].
+        // To see [1] (right of 0), we move Left (negative).
+        return (-activeIndex * 100) + dragPercent;
+    };
 
     return (
         <div
-            className="relative overflow-hidden rounded-2xl"
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
+            ref={containerRef}
+            className="relative overflow-hidden rounded-2xl select-none"
+            onMouseEnter={() => !isDragging && setIsPaused(true)}
+            onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'pan-y pinch-zoom' }}
         >
-            {/* Banner Container */}
+            {/* Slides Container - Gallery Style */}
             <div
                 className={cn(
-                    "relative h-40 sm:h-48 md:h-56 lg:h-64 cursor-pointer transition-all duration-500",
-                    "bg-gradient-to-r from-primary to-primary/80"
+                    "flex",
+                    !isDragging && "transition-transform duration-300 ease-out"
                 )}
                 style={{
-                    background: currentBanner.backgroundColor || undefined,
+                    transform: `translateX(${getTranslateX()}%)`,
                 }}
-                onClick={() => onBannerClick?.(currentBanner)}
             >
-                {/* Background Image */}
-                {currentBanner.imageUrl && (
-                    <img
-                        src={currentBanner.imageUrl}
-                        alt={currentBanner.title}
-                        className="absolute inset-0 w-full h-full object-cover"
-                    />
-                )}
-
-                {/* Gradient Overlay - reversed for RTL */}
-                <div className={cn(
-                    "absolute inset-0",
-                    isRTL
-                        ? "bg-gradient-to-l from-black/60 via-black/30 to-transparent"
-                        : "bg-gradient-to-r from-black/60 via-black/30 to-transparent"
-                )} />
-
-                {/* Content */}
-                <div
-                    className={cn(
-                        "absolute inset-0 flex flex-col justify-center p-6 md:p-8",
-                        isRTL ? "items-end" : "items-start"
-                    )}
-                    style={{
-                        direction: isRTL ? 'rtl' : 'ltr',
-                        textAlign: isRTL ? 'right' : 'left'
-                    }}
-                >
-                    <h2
-                        className="text-white text-xl sm:text-2xl md:text-3xl font-bold mb-2 drop-shadow-lg max-w-md"
-                        style={{
-                            color: currentBanner.textColor || 'white',
-                            direction: isRTL ? 'rtl' : 'ltr',
-                            textAlign: isRTL ? 'right' : 'left'
-                        }}
+                {banners.map((banner, index) => (
+                    <div
+                        key={banner.id}
+                        className="w-full flex-shrink-0"
                     >
-                        {currentBanner.title}
-                    </h2>
-
-                    {currentBanner.subtitle && (
-                        <p
-                            className="text-white/90 text-sm sm:text-base mb-4 max-w-sm drop-shadow"
-                            style={{
-                                color: currentBanner.textColor || 'white',
-                                direction: isRTL ? 'rtl' : 'ltr',
-                                textAlign: isRTL ? 'right' : 'left'
-                            }}
-                        >
-                            {currentBanner.subtitle}
-                        </p>
-                    )}
-
-                    {currentBanner.ctaText && (
-                        <Button
-                            className="bg-white text-primary hover:bg-white/90 font-semibold rounded-xl shadow-lg"
-                        >
-                            {currentBanner.ctaText}
-                        </Button>
-                    )}
-                </div>
-            </div>
-
-            {/* Dots Indicator */}
-            {banners.length > 1 && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                    {banners.map((_, index) => (
-                        <button
-                            key={index}
+                        {/* Individual Banner */}
+                        <div
                             className={cn(
-                                "w-2 h-2 rounded-full transition-all duration-300",
-                                index === activeIndex
-                                    ? "bg-white w-6"
-                                    : "bg-white/50 hover:bg-white/70"
+                                "relative h-40 sm:h-48 md:h-56 lg:h-64 cursor-pointer",
+                                "bg-gradient-to-r from-primary to-primary/80"
                             )}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                goToSlide(index);
+                            style={{
+                                background: banner.backgroundColor || undefined,
                             }}
-                        />
-                    ))}
-                </div>
-            )}
+                            onClick={() => !isDragging && Math.abs(dragDelta) < 5 && onBannerClick?.(banner)}
+                        >
+                            {/* Background Image */}
+                            {banner.imageUrl && (
+                                <img
+                                    src={banner.imageUrl}
+                                    alt={banner.title}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                    draggable={false}
+                                />
+                            )}
+
+                            {/* Gradient Overlay */}
+                            <div className={cn(
+                                "absolute inset-0",
+                                isRTL
+                                    ? "bg-gradient-to-r from-transparent via-black/30 to-black/60"
+                                    : "bg-gradient-to-r from-black/60 via-black/30 to-transparent"
+                            )} />
+                            isRTL && "text-right"
+                                    )}
+                            style={{ color: banner.textColor || 'white' }}
+                                >
+                            {banner.title}
+                        </h2>
+
+                        {banner.subtitle && (
+                            <p
+                                className={cn(
+                                    "text-white/90 text-sm sm:text-base mb-4 max-w-sm drop-shadow",
+                                    isRTL && "text-right"
+                                )}
+                                style={{ color: banner.textColor || 'white' }}
+                            >
+                                {banner.subtitle}
+                            </p>
+                        )}
+
+                        {banner.ctaText && (
+                            <Button
+                                className="bg-white text-primary hover:bg-white/90 font-semibold rounded-xl shadow-lg"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {banner.ctaText}
+                            </Button>
+                        )}
+                    </div>
+                        </div>
         </div>
+    ))
+}
+            </div >
+
+    {/* Dots Indicator */ }
+{
+    banners.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {banners.map((_, index) => (
+                <button
+                    key={index}
+                    className={cn(
+                        "w-2 h-2 rounded-full transition-all duration-300",
+                        index === activeIndex
+                            ? "bg-white w-6"
+                            : "bg-white/50 hover:bg-white/70"
+                    )}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        goToSlide(index);
+                    }}
+                />
+            ))}
+        </div>
+    )
+}
+        </div >
     );
 }
 

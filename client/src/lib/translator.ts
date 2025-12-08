@@ -6,6 +6,8 @@ const arabicToEnglish: Record<string, string> = {
     "لحوم ودواجن": "Meat & Poultry",
     "مشروبات": "Beverages",
     "بقالة": "Pantry",
+    "مجمدات": "Frozen Foods",
+    "تسالي": "Snacks",
 
     // Products
     "موز طازج": "Fresh Banana",

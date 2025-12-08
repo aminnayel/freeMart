@@ -107,13 +107,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const product = await storage.createProduct(result.data);
 
+      // Get category name for better logging
+      const category = await storage.getCategoryById(product.categoryId);
+
       await storage.createAdminLog({
         adminUserId: (req.user as any).id,
         adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
         action: "CREATE_PRODUCT",
         targetType: "product",
         targetId: product.id,
-        details: `Created product ${product.name}`,
+        details: JSON.stringify({
+          name: product.name,
+          englishName: product.englishName,
+          price: product.price,
+          stock: product.stock,
+          category: category?.name || 'Unknown',
+          hasImage: !!product.imageUrl
+        }),
       });
 
       res.status(201).json(product);
@@ -201,14 +211,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Log the admin action
+      // Log the admin action with detailed changes
+      const changes: string[] = [];
+      if (oldProduct.name !== product.name) changes.push(`name: "${oldProduct.name}" → "${product.name}"`);
+      if (oldProduct.englishName !== product.englishName) changes.push(`englishName changed`);
+      if (oldProduct.price !== product.price) changes.push(`price: ${oldProduct.price} → ${product.price}`);
+      if (oldStock !== newStock) changes.push(`stock: ${oldStock} → ${newStock}`);
+      if (oldProduct.imageUrl !== product.imageUrl) changes.push(`image updated`);
+      if (oldProduct.description !== product.description) changes.push(`description updated`);
+      if (oldProduct.isAvailable !== product.isAvailable) changes.push(`availability: ${product.isAvailable ? 'enabled' : 'disabled'}`);
+      if (oldProduct.categoryId !== product.categoryId) changes.push(`category changed`);
+
       await storage.createAdminLog({
         adminUserId: (req.user as any).id,
         adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
         action: "UPDATE_PRODUCT",
         targetType: "product",
         targetId: productId,
-        details: `Updated product ${product.name} (Stock: ${oldStock} -> ${newStock})`,
+        details: JSON.stringify({
+          name: product.name,
+          changes: changes.length > 0 ? changes : ['no visible changes'],
+          oldStock,
+          newStock
+        }),
       });
 
       res.json(product);
@@ -220,15 +245,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/admin/products/:id', isAuthenticated, isAdmin, async (req, res) => {
     try {
-      await storage.deleteProduct(parseInt(req.params.id));
+      const productId = parseInt(req.params.id);
+      // Get product info before deleting for the log
+      const product = await storage.getProductById(productId);
+      const productName = product?.name || 'Unknown';
+
+      await storage.deleteProduct(productId);
 
       await storage.createAdminLog({
         adminUserId: (req.user as any).id,
         adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
         action: "DELETE_PRODUCT",
         targetType: "product",
-        targetId: req.params.id,
-        details: `Deleted product ID ${req.params.id}`,
+        targetId: productId,
+        details: JSON.stringify({
+          deletedProductName: productName,
+          deletedProductId: productId
+        }),
       });
 
       res.status(204).send();
@@ -334,6 +367,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const userId of failedSubscriptions) {
         await storage.removePushSubscription(userId);
       }
+
+      // Log the notification action BEFORE sending response
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName || ''} ${(req.user as any).lastName || ''}`.trim() || 'Admin',
+        action: "SEND_NOTIFICATION",
+        targetType: "notification",
+        targetId: 0,
+        details: JSON.stringify({
+          title,
+          message,
+          link: link || '/',
+          subscriberCount: successCount,
+          failedCount
+        }),
+      });
 
       // Return success with subscriber count
       res.json({
@@ -529,7 +578,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: "UPDATE_ORDER_STATUS",
         targetType: "order",
         targetId: orderId,
-        details: `Updated order #${orderId} status to ${status}`,
+        details: JSON.stringify({
+          orderId,
+          oldStatus: updatedOrder.status, // Will reflect new status since we're after update
+          newStatus: status,
+          customerPhone: updatedOrder.phoneNumber
+        }),
       });
 
       res.json(updatedOrder);
@@ -801,7 +855,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.user?.isAdmin) {
         return res.status(403).json({ message: "Forbidden - Admin access required" });
       }
-      const logs = await storage.getAdminLogs(100);
+
+      // Parse filter parameters
+      const filters: any = {
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
+      };
+
+      if (req.query.action) {
+        filters.action = req.query.action as string;
+      }
+      if (req.query.adminUserId) {
+        filters.adminUserId = req.query.adminUserId as string;
+      }
+      if (req.query.targetType) {
+        filters.targetType = req.query.targetType as string;
+      }
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+
+      const logs = await storage.getAdminLogs(filters);
       res.json(logs);
     } catch (error) {
       console.error("Error fetching admin logs:", error);

@@ -2,30 +2,31 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Bell, X } from "lucide-react";
 import { subscribeToPushNotifications } from "@/lib/push-notifications";
+import { useTranslation } from "react-i18next";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function NotificationPrompt() {
     const [showPrompt, setShowPrompt] = useState(false);
     const [permission, setPermission] = useState<NotificationPermission>("default");
+    const { i18n } = useTranslation();
+    const isRTL = i18n.language === 'ar';
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         // Check if browser supports notifications
         if (!("Notification" in window)) return;
 
-        setPermission(Notification.permission);
+        const currentPermission = Notification.permission;
+        setPermission(currentPermission);
 
-        // Show prompt if permission is default (not granted or denied yet)
-        // and if standard PWA check (standalone) or just generally on mobile
-        const isMobile = /mobile|tablet|android|iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-
-        // The user requested: "specifically for PWA" but also "always prompt if not enabled"
-        // We should prompt if we are in PWA mode OR if it's mobile web (likely PWA usage context)
-        if (Notification.permission === "default" && (isStandalone || isMobile)) {
-            // Delay slightly
-            const timer = setTimeout(() => setShowPrompt(true), 3000);
+        // Always show prompt if permission is default (not granted or denied yet)
+        if (currentPermission === "default") {
+            // Shorter delay on mobile to ensure visibility (PWA requirement)
+            const delay = isMobile ? 1000 : 3500;
+            const timer = setTimeout(() => setShowPrompt(true), delay);
             return () => clearTimeout(timer);
         }
-    }, []);
+    }, [isMobile]);
 
     const handleEnable = async () => {
         if (!("Notification" in window)) return;
@@ -52,23 +53,33 @@ export function NotificationPrompt() {
     }
 
     return (
-        <div className="fixed bottom-20 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 md:right-auto md:w-96 md:bottom-4">
-            <div className="bg-popover text-popover-foreground border shadow-xl rounded-xl p-4 flex gap-4 items-start">
-                <div className="p-2 bg-primary/10 text-primary rounded-full">
+        <div
+            className="fixed bottom-20 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 md:right-auto md:w-96 md:bottom-4"
+            dir={isRTL ? 'rtl' : 'ltr'}
+        >
+            <div className="bg-popover text-popover-foreground border shadow-xl rounded-2xl p-4 flex gap-4 items-start">
+                <div className="p-2.5 bg-primary/10 text-primary rounded-xl shrink-0">
                     <Bell className="w-6 h-6" />
                 </div>
-                <div className="flex-1 space-y-1">
-                    <div className="flex justify-between items-start">
-                        <h4 className="font-semibold leading-none tracking-tight">تفعيل الإشعارات</h4>
-                        <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
+                <div className="flex-1 space-y-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                        <h4 className={`font-bold leading-tight ${isRTL ? 'text-right' : 'text-left'}`}>
+                            {isRTL ? 'تفعيل الإشعارات' : 'Enable Notifications'}
+                        </h4>
+                        <button
+                            onClick={handleClose}
+                            className="text-muted-foreground hover:text-foreground shrink-0"
+                        >
                             <X className="w-4 h-4" />
                         </button>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        فعّل الإشعارات عشان يوصلك تنبيه لما المنتجات تتوفر وعروضنا الجديدة!
+                    <p className={`text-sm text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
+                        {isRTL
+                            ? 'فعّل الإشعارات عشان يوصلك تنبيه لما المنتجات تتوفر وعروضنا الجديدة!'
+                            : 'Get notified when products are back in stock and about new offers!'}
                     </p>
-                    <Button onClick={handleEnable} className="w-full mt-3 font-bold" size="sm">
-                        تفعيل التنبيهات
+                    <Button onClick={handleEnable} className="w-full mt-3 font-bold rounded-xl" size="sm">
+                        {isRTL ? 'تفعيل التنبيهات' : 'Enable Notifications'}
                     </Button>
                 </div>
             </div>

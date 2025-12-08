@@ -26,6 +26,7 @@ interface ProductCardProps {
     onClick?: () => void;
     isLoading?: boolean;
     isRTL?: boolean;
+    isNotifySubscribed?: boolean;
     t: (key: string) => string;
 }
 
@@ -39,6 +40,7 @@ export function ProductCard({
     onClick,
     isLoading = false,
     isRTL = false,
+    isNotifySubscribed = false,
     t,
 }: ProductCardProps) {
     const [isPressed, setIsPressed] = useState(false);
@@ -80,20 +82,20 @@ export function ProductCard({
     return (
         <Card
             className={cn(
-                "group relative overflow-hidden border-0 bg-white dark:bg-slate-900 rounded-2xl transition-all duration-300",
+                "group relative overflow-hidden border-0 bg-white dark:bg-slate-900 rounded-2xl transition-all duration-300 cursor-pointer",
                 "hover:shadow-lg hover:-translate-y-1",
                 "active:scale-[0.98] active:shadow-md",
                 isPressed && "scale-[0.98]",
                 isOutOfStock && "opacity-80"
             )}
+            onClick={onClick}
             onMouseDown={() => setIsPressed(true)}
             onMouseUp={() => setIsPressed(false)}
             onMouseLeave={() => setIsPressed(false)}
         >
             {/* Product Image Section */}
             <div
-                className="relative aspect-square overflow-hidden cursor-pointer"
-                onClick={onClick}
+                className="relative aspect-square overflow-hidden"
             >
                 {/* Image */}
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
@@ -132,11 +134,10 @@ export function ProductCard({
                 {/* Product Name */}
                 <h3
                     className={cn(
-                        "font-semibold text-sm leading-tight line-clamp-2 min-h-[2.5rem] cursor-pointer",
+                        "font-semibold text-sm leading-tight line-clamp-2 min-h-[2.5rem]",
                         "group-hover:text-primary transition-colors",
                         isRTL ? "text-right" : "text-left"
                     )}
-                    onClick={onClick}
                 >
                     {getDisplayName()}
                 </h3>
@@ -162,15 +163,23 @@ export function ProductCard({
                         // Notify Me Button
                         <Button
                             variant="secondary"
-                            className="w-full h-10 rounded-xl text-sm font-medium gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:hover:bg-amber-900/30 dark:text-amber-400"
+                            className={cn(
+                                "w-full h-10 rounded-xl text-sm font-medium gap-2 border border-amber-200 dark:border-amber-900/50",
+                                "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
+                                !isNotifySubscribed && "hover:bg-amber-100 dark:hover:bg-amber-900/30",
+                                isNotifySubscribed && "opacity-80 cursor-default"
+                            )}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onNotifyMe?.();
+                                if (!isNotifySubscribed) onNotifyMe?.();
                             }}
-                            disabled={isLoading}
+                            disabled={isLoading || isNotifySubscribed}
                         >
                             <Bell className="w-4 h-4" />
-                            {isRTL ? 'أعلمني' : 'Notify Me'}
+                            {isNotifySubscribed
+                                ? (isRTL ? 'سنعلمك عند التوفر' : "We'll notify you")
+                                : (isRTL ? 'أعلمني' : 'Notify Me')
+                            }
                         </Button>
                     ) : quantity === 0 ? (
                         // Add to Cart Button

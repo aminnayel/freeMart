@@ -9,6 +9,8 @@ import { RequireAdmin } from "@/lib/require-admin";
 import { Layout } from "@/components/layout";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { NotificationPrompt } from "@/components/notification-prompt";
+import { AuthModal } from "@/components/auth/auth-modal";
+import { AuthModalProvider } from "@/components/auth/auth-modal-context";
 import NotFound from "@/pages/not-found";
 import Shop from "@/pages/shop";
 import Cart from "@/pages/cart";
@@ -18,9 +20,42 @@ import Admin from "@/pages/admin";
 import AuthPage from "@/pages/auth";
 import OrderDetails from "@/pages/order-details";
 
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import i18n from "@/lib/i18n";
+
+function ScrollToTop() {
+  const [pathname] = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
+function LanguageHandler() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const lang = params.get("language");
+    if (lang === "ar" || lang === "en") {
+      if (i18n.language !== lang) {
+        i18n.changeLanguage(lang);
+        const dir = lang === "ar" ? "rtl" : "ltr";
+        document.documentElement.dir = dir;
+        document.documentElement.lang = lang;
+      }
+    }
+  }, []);
+
+  return null;
+}
+
 function Router() {
   return (
     <Layout>
+      <ScrollToTop />
+      <LanguageHandler />
       <Switch>
         <Route path="/" component={Shop} />
         <Route path="/shop" component={Shop} />
@@ -61,10 +96,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
-        <PWAInstallPrompt />
-        <NotificationPrompt />
+        <AuthModalProvider>
+          <Toaster />
+          <Router />
+          <PWAInstallPrompt />
+          <NotificationPrompt />
+          <AuthModal />
+        </AuthModalProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

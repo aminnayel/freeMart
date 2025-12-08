@@ -8,13 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
     Search, Plus, Edit, Trash2, AlertTriangle, Bell, Package, Grid,
-    ChevronRight, ShoppingBag, TrendingUp, Users, Settings,
-    ArrowLeft, Filter, MoreVertical, RefreshCcw, ClipboardList
+    ChevronRight, ShoppingBag, TrendingUp, RefreshCcw, ClipboardList, MoreVertical
 } from "lucide-react";
 import type { Product, Category } from "@shared/schema";
 import AdminCategories from "./admin/categories";
@@ -26,6 +24,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+type TabType = 'dashboard' | 'products' | 'categories' | 'orders' | 'notifications' | 'logs';
 
 export default function Admin() {
     const { toast } = useToast();
@@ -33,8 +34,7 @@ export default function Admin() {
     const { t, i18n } = useTranslation();
     const isRTL = i18n.language === 'ar';
 
-    // Mobile navigation state
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'categories' | 'orders' | 'notifications' | 'logs'>('dashboard');
+    const [activeTab, setActiveTab] = useState<TabType>('dashboard');
     const [searchTerm, setSearchTerm] = useState("");
     const [isAddEditOpen, setIsAddEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -254,439 +254,17 @@ export default function Admin() {
         return matchesSearch && matchesCategory && matchesStock;
     });
 
-    // Dashboard View
-    const renderDashboard = () => (
-        <div className="p-4 space-y-4 pb-24">
-            {/* Welcome Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-xl font-bold">{isRTL ? 'مرحباً بك' : 'Welcome back'} 👋</h1>
-                    <p className="text-sm text-muted-foreground">{isRTL ? 'لوحة تحكم المتجر' : 'Store Dashboard'}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => refetchProducts()}>
-                    <RefreshCcw className="w-5 h-5" />
-                </Button>
-            </div>
+    // Tab configuration
+    const tabs: { id: TabType; label: string; icon: React.ElementType; badge?: number }[] = [
+        { id: 'dashboard', label: isRTL ? 'الرئيسية' : 'Dashboard', icon: TrendingUp },
+        { id: 'products', label: isRTL ? 'المنتجات' : 'Products', icon: Package },
+        { id: 'orders', label: isRTL ? 'الطلبات' : 'Orders', icon: ShoppingBag, badge: stats.pendingOrders },
+        { id: 'categories', label: isRTL ? 'الأقسام' : 'Categories', icon: Grid },
+        { id: 'notifications', label: isRTL ? 'الإشعارات' : 'Notifications', icon: Bell },
+        { id: 'logs', label: isRTL ? 'السجل' : 'Logs', icon: ClipboardList },
+    ];
 
-            {/* Back to Store Button (Mobile Only) */}
-            <div className="lg:hidden">
-                <Button variant="outline" className="w-full justify-start gap-2 border-dashed" asChild>
-                    <Link href="/">
-                        <ArrowLeft className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
-                        {t('back_to_store')}
-                    </Link>
-                </Button>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 gap-3">
-                <Card className="p-4 border-none bg-gradient-to-br from-primary/10 to-primary/5 active:scale-98 transition-transform" onClick={() => setActiveTab('orders')}>
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/20 rounded-lg">
-                            <ShoppingBag className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{stats.pendingOrders}</p>
-                            <p className="text-xs text-muted-foreground">{isRTL ? 'طلبات جديدة' : 'New Orders'}</p>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4 border-none bg-gradient-to-br from-green-500/10 to-green-500/5 active:scale-98 transition-transform" onClick={() => setActiveTab('products')}>
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-500/20 rounded-lg">
-                            <Package className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{stats.totalProducts}</p>
-                            <p className="text-xs text-muted-foreground">{isRTL ? 'منتج' : 'Products'}</p>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4 border-none bg-gradient-to-br from-amber-500/10 to-amber-500/5">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-500/20 rounded-lg">
-                            <AlertTriangle className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{stats.lowStock}</p>
-                            <p className="text-xs text-muted-foreground">{isRTL ? 'مخزون منخفض' : 'Low Stock'}</p>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4 border-none bg-gradient-to-br from-blue-500/10 to-blue-500/5">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/20 rounded-lg">
-                            <TrendingUp className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{stats.totalRevenue.toFixed(0)}</p>
-                            <p className="text-xs text-muted-foreground">{isRTL ? 'الإيرادات' : 'Revenue'}</p>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-
-            {/* Quick Actions */}
-            <Card className="p-4 border-none">
-                <h2 className="font-semibold mb-3">{isRTL ? 'إجراءات سريعة' : 'Quick Actions'}</h2>
-                <div className="grid grid-cols-2 gap-3">
-                    <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2 border-dashed"
-                        onClick={handleAdd}
-                    >
-                        <Plus className="w-6 h-6 text-primary" />
-                        <span className="text-xs">{isRTL ? 'منتج جديد' : 'Add Product'}</span>
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="h-auto py-4 flex-col gap-2 border-dashed"
-                        onClick={() => setActiveTab('notifications')}
-                    >
-                        <Bell className="w-6 h-6 text-primary" />
-                        <span className="text-xs">{isRTL ? 'إرسال إشعار' : 'Send Notification'}</span>
-                    </Button>
-                </div>
-            </Card >
-
-            {/* Recent Orders Preview */}
-            < Card className="p-4 border-none" >
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="font-semibold">{isRTL ? 'آخر الطلبات' : 'Recent Orders'}</h2>
-                    <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setActiveTab('orders')}>
-                        {isRTL ? 'عرض الكل' : 'View All'}
-                        <ChevronRight className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
-                    </Button>
-                </div>
-                <div className="space-y-2">
-                    {orders?.slice(0, 3).map((order) => (
-                        <div key={order.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                    <ShoppingBag className="w-5 h-5 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-sm">#{order.id}</p>
-                                    <p className="text-xs text-muted-foreground" dir="ltr">{order.phoneNumber}</p>
-                                </div>
-                            </div>
-                            <div className="text-end">
-                                <p className="font-bold text-sm text-primary">{order.totalAmount}</p>
-                                <Badge variant={order.status === 'pending' ? 'secondary' : 'default'} className="text-xs">
-                                    {order.status === 'pending' ? (isRTL ? 'جديد' : 'New') : (isRTL ? 'مكتمل' : 'Done')}
-                                </Badge>
-                            </div>
-                        </div>
-                    ))}
-                    {(!orders || orders.length === 0) && (
-                        <p className="text-center text-muted-foreground text-sm py-4">{isRTL ? 'لا توجد طلبات' : 'No orders yet'}</p>
-                    )}
-                </div>
-            </Card >
-
-            {/* Low Stock Alert */}
-            {
-                stats.lowStock > 0 && (
-                    <Card className="p-4 border-none bg-amber-50 dark:bg-amber-950/20">
-                        <div className="flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-amber-600" />
-                            <div className="flex-1">
-                                <p className="font-medium text-sm">{isRTL ? 'تنبيه المخزون' : 'Low Stock Alert'}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {isRTL ? `${stats.lowStock} منتجات قاربت على النفاد` : `${stats.lowStock} products running low`}
-                                </p>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => { setStockFilter('low_stock'); setActiveTab('products'); }}>
-                                {isRTL ? 'عرض' : 'View'}
-                            </Button>
-                        </div>
-                    </Card>
-                )
-            }
-
-            {/* Out of Stock Alert */}
-            {
-                stats.outOfStock > 0 && (
-                    <Card className="p-4 border-none bg-red-50 dark:bg-red-950/20">
-                        <div className="flex items-center gap-3">
-                            <Package className="w-5 h-5 text-red-600" />
-                            <div className="flex-1">
-                                <p className="font-medium text-sm">{isRTL ? 'نفذ من المخزون' : 'Out of Stock'}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {isRTL ? `${stats.outOfStock} منتجات نفذت` : `${stats.outOfStock} products out of stock`}
-                                </p>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => { setStockFilter('out_of_stock'); setActiveTab('products'); }}>
-                                {isRTL ? 'عرض' : 'View'}
-                            </Button>
-                        </div>
-                    </Card>
-                )
-            }
-        </div >
-    );
-
-    // Products View (Mobile Optimized)
-    const renderProducts = () => (
-        <div className="flex flex-col h-full space-y-4">
-            {/* Header & Controls */}
-            <div className="sticky top-0 z-10 p-4 pb-2 space-y-3 bg-gradient-to-b from-background via-background/95 to-transparent">
-                <Card className="p-4 border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm relative overflow-visible">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h1 className="text-xl font-bold">{t('products')}</h1>
-                            <p className="text-xs text-muted-foreground">{isRTL ? 'إدارة مخزون المتجر' : 'Manage store inventory'}</p>
-                        </div>
-                        <Button variant="outline" size="icon" onClick={() => setShowFilters(!showFilters)} className={showFilters ? "bg-primary text-primary-foreground border-primary" : ""}>
-                            <Filter className="w-4 h-4" />
-                        </Button>
-                    </div>
-
-                    {/* Search */}
-                    <div className="relative">
-                        <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
-                        <Input
-                            placeholder={isRTL ? 'بحث عن منتج...' : 'Search products...'}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className={`${isRTL ? 'pr-10' : 'pl-10'} bg-muted/50 border-none h-11 rounded-xl focus:ring-2 focus:ring-primary/20`}
-                        />
-                    </div>
-
-                    {/* Filters */}
-                    {showFilters && (
-                        <div className="pt-4 space-y-3 animate-in slide-in-from-top-2 fade-in duration-200">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground ml-1 rtl:mr-1">{isRTL ? 'حالة المخزون' : 'Stock Status'}</Label>
-                                <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
-                                    <Button
-                                        variant={stockFilter === 'all' ? "default" : "outline"}
-                                        size="sm"
-                                        className="rounded-full whitespace-nowrap h-8 text-xs shadow-sm"
-                                        onClick={() => setStockFilter('all')}
-                                    >
-                                        {isRTL ? 'الكل' : 'All'} <span className="ml-1 opacity-70">({products.length})</span>
-                                    </Button>
-                                    <Button
-                                        variant={stockFilter === 'in_stock' ? "default" : "outline"}
-                                        size="sm"
-                                        className={`rounded-full whitespace-nowrap h-8 text-xs shadow-sm ${stockFilter === 'in_stock' ? 'bg-green-600 hover:bg-green-700' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
-                                        onClick={() => setStockFilter('in_stock')}
-                                    >
-                                        {isRTL ? 'متوفر' : 'In Stock'}
-                                    </Button>
-                                    <Button
-                                        variant={stockFilter === 'low_stock' ? "default" : "outline"}
-                                        size="sm"
-                                        className={`rounded-full whitespace-nowrap h-8 text-xs shadow-sm ${stockFilter === 'low_stock' ? 'bg-amber-500 hover:bg-amber-600' : 'text-amber-600 border-amber-200 hover:bg-amber-50'}`}
-                                        onClick={() => setStockFilter('low_stock')}
-                                    >
-                                        {isRTL ? 'قليل' : 'Low Stock'} <span className="ml-1 opacity-70">({stats.lowStock})</span>
-                                    </Button>
-                                    <Button
-                                        variant={stockFilter === 'out_of_stock' ? "destructive" : "outline"}
-                                        size="sm"
-                                        className={`rounded-full whitespace-nowrap h-8 text-xs shadow-sm ${stockFilter === 'out_of_stock' ? '' : 'text-red-600 border-red-200 hover:bg-red-50'}`}
-                                        onClick={() => setStockFilter('out_of_stock')}
-                                    >
-                                        {isRTL ? 'نفذ' : 'Out of Stock'} <span className="ml-1 opacity-70">({stats.outOfStock})</span>
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground ml-1 rtl:mr-1">{isRTL ? 'الأقسام' : 'Categories'}</Label>
-                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none">
-                                    <Button
-                                        variant={selectedCategoryFilter === null ? "secondary" : "ghost"}
-                                        size="sm"
-                                        className="rounded-full whitespace-nowrap h-8 text-xs border"
-                                        onClick={() => setSelectedCategoryFilter(null)}
-                                    >
-                                        {isRTL ? 'الكل' : 'All'}
-                                    </Button>
-                                    {categories.map(cat => (
-                                        <Button
-                                            key={cat.id}
-                                            variant={selectedCategoryFilter === cat.id ? "secondary" : "ghost"}
-                                            size="sm"
-                                            className="rounded-full whitespace-nowrap h-8 text-xs border"
-                                            onClick={() => setSelectedCategoryFilter(cat.id)}
-                                        >
-                                            {cat.name}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </Card>
-            </div>
-
-            {/* Products List */}
-            <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
-                {filteredProducts.map((product) => (
-                    <Card
-                        key={product.id}
-                        className="p-3 border-none flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300 group active:scale-[0.99] cursor-pointer"
-                        onClick={() => handleEdit(product)}
-                    >
-                        {/* Product Image */}
-                        <div className="w-16 h-16 rounded-2xl bg-muted/50 overflow-hidden flex-shrink-0 relative shadow-inner group-hover:scale-105 transition-transform duration-300">
-                            {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
-                                <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-3xl">
-                                    {product.imageUrl || <Package className="w-6 h-6 opacity-30" />}
-                                </div>
-                            )}
-                            {/* Stock Badge Overlay */}
-                            {(product.stock || 0) === 0 && (
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                    <Package className="w-6 h-6 text-white" />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Product Info */}
-                        <div className="flex-1 min-w-0 py-1">
-                            <div className="flex items-start justify-between gap-2">
-                                <div>
-                                    <p className="font-bold text-sm truncate leading-tight mb-1">{product.name}</p>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span className="font-mono bg-muted/50 px-1 rounded">#{product.id}</span>
-                                        {product.englishName && <span className="truncate max-w-[100px]">{product.englishName}</span>}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-1">
-                                    {getStockBadge(product.stock || 0)}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-baseline gap-1">
-                                    <span className="font-bold text-lg text-primary">{product.price}</span>
-                                    <span className="text-xs text-muted-foreground">{isRTL ? 'جنيه' : 'EGP'}</span>
-                                    <span className="text-[10px] text-muted-foreground/60 ml-1 rtl:mr-1 rtl:ml-0">/ {t(product.unit as any)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Actions Button */}
-                        <div className="self-center" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted">
-                                        <MoreVertical className="w-4 h-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align={isRTL ? "start" : "end"} className="w-40 rounded-xl">
-                                    <DropdownMenuItem onClick={() => handleEdit(product)} className="gap-2 p-2.5 cursor-pointer font-medium">
-                                        <Edit className="w-4 h-4 text-blue-500" />
-                                        {isRTL ? 'تعديل' : 'Edit'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleDelete(product)} className="gap-2 p-2.5 cursor-pointer text-destructive font-medium focus:text-destructive">
-                                        <Trash2 className="w-4 h-4" />
-                                        {isRTL ? 'حذف' : 'Delete'}
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </Card>
-                ))}
-
-                {filteredProducts.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in zoom-in-95 duration-300">
-                        <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-4">
-                            <Package className="w-10 h-10 text-muted-foreground/30" />
-                        </div>
-                        <h3 className="font-bold text-lg">{isRTL ? 'لا توجد منتجات' : 'No products found'}</h3>
-                        <p className="text-sm text-muted-foreground max-w-xs mt-1">
-                            {searchTerm
-                                ? (isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try searching with different keywords')
-                                : (isRTL ? 'إبدأ بإضافة منتجات جديدة لمتجرك' : 'Start by adding new products to your store')
-                            }
-                        </p>
-                        {!searchTerm && (
-                            <Button onClick={handleAdd} className="mt-6 rounded-xl shadow-lg shadow-primary/20">
-                                <Plus className="w-4 h-4 me-2" />
-                                {isRTL ? 'إضافة منتج' : 'Add Product'}
-                            </Button>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-
-    // Notifications View (Mobile Optimized)
-    const renderNotifications = () => (
-        <div className="p-4 pb-24 space-y-4">
-            <h1 className="text-xl font-bold">{isRTL ? 'إرسال إشعار' : 'Send Notification'}</h1>
-
-            <Card className="p-4 border-none space-y-4">
-                <div className="space-y-2">
-                    <Label>{isRTL ? 'العنوان' : 'Title'}</Label>
-                    <Input
-                        value={pushData.title}
-                        onChange={(e) => setPushData({ ...pushData, title: e.target.value })}
-                        placeholder={isRTL ? 'مثال: عروض جديدة 🎉' : 'e.g., New Offers! 🎉'}
-                        className="bg-muted/50 border-none h-12"
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label>{isRTL ? 'الرسالة' : 'Message'}</Label>
-                    <Textarea
-                        value={pushData.message}
-                        onChange={(e) => setPushData({ ...pushData, message: e.target.value })}
-                        placeholder={isRTL ? 'أكتب رسالتك هنا...' : 'Write your message here...'}
-                        className="bg-muted/50 border-none min-h-[120px]"
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label>{isRTL ? 'الرابط (اختياري)' : 'Link (Optional)'}</Label>
-                    <Input
-                        value={pushData.link}
-                        onChange={(e) => setPushData({ ...pushData, link: e.target.value })}
-                        placeholder="/shop"
-                        className="bg-muted/50 border-none h-12"
-                        dir="ltr"
-                    />
-                </div>
-
-                <Button
-                    onClick={() => pushMutation.mutate(pushData)}
-                    disabled={pushMutation.isPending || !pushData.title || !pushData.message}
-                    className="w-full h-12 text-base"
-                >
-                    {pushMutation.isPending
-                        ? (isRTL ? 'جاري الإرسال...' : 'Sending...')
-                        : (isRTL ? 'إرسال الإشعار' : 'Send Notification')}
-                </Button>
-            </Card>
-
-            {/* Stock Notification Subscribers */}
-            <Card className="p-4 border-none space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="font-bold">{isRTL ? 'المنتظرين للمنتجات' : 'Waiting for Stock'}</h2>
-                    <Button variant="ghost" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/admin/product-notifications"] })}>
-                        <RefreshCcw className="w-4 h-4" />
-                    </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                    {isRTL ? 'العملاء الذين طلبوا إشعارهم عند توفر منتجات نفذت' : 'Customers waiting for out-of-stock products'}
-                </p>
-                <ProductNotificationsList isRTL={isRTL} />
-            </Card>
-        </div>
-    );
-
-    // Product Notifications List Component (used in renderNotifications)
+    // Product Notifications List Component
     function ProductNotificationsList({ isRTL }: { isRTL: boolean }) {
         const { data: notifications = [], isLoading } = useQuery<any[]>({
             queryKey: ["/api/admin/product-notifications"],
@@ -725,226 +303,453 @@ export default function Admin() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20" dir={isRTL ? 'rtl' : 'ltr'}>
-            {/* DESKTOP LAYOUT */}
-            <div className="hidden lg:flex">
-                {/* Desktop Sidebar */}
-                <aside className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} w-64 h-screen bg-gradient-to-b from-card via-card to-card/95 border-e shadow-2xl z-40 flex flex-col`}>
-                    {/* Sidebar Header */}
-                    <div className="p-6 border-b bg-gradient-to-r from-primary/10 to-primary/5">
-                        <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                            {isRTL ? 'لوحة التحكم' : 'Admin Panel'}
-                        </h2>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {isRTL ? 'إدارة متجرك' : 'Manage your store'}
-                        </p>
+        <div className="min-h-screen bg-background pb-20" dir={isRTL ? 'rtl' : 'ltr'}>
+            {/* Tab Navigation - Sticky below header */}
+            <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b">
+                <div className="container mx-auto px-4">
+                    {/* Desktop Tabs */}
+                    <div className="hidden md:flex items-center gap-1 py-2 overflow-x-auto">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                                    activeTab === tab.id
+                                        ? 'bg-primary text-primary-foreground shadow-md'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                )}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                                {tab.badge && tab.badge > 0 && (
+                                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+                                        {tab.badge}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                        <div className="flex-1" />
+                        <Button variant="ghost" size="icon" onClick={() => refetchProducts()}>
+                            <RefreshCcw className="w-4 h-4" />
+                        </Button>
+                        {activeTab === 'products' && (
+                            <Button onClick={handleAdd} size="sm" className="gap-2">
+                                <Plus className="w-4 h-4" />
+                                {isRTL ? 'إضافة منتج' : 'Add Product'}
+                            </Button>
+                        )}
                     </div>
 
-                    {/* Navigation */}
-                    <nav className="flex-1 p-4 space-y-2">
-                        <button
-                            onClick={() => setActiveTab('dashboard')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'dashboard'
-                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
-                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <TrendingUp className="w-5 h-5" />
-                            <span className="font-medium">{isRTL ? 'لوحة التحكم' : 'Dashboard'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('products')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'products'
-                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
-                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Package className="w-5 h-5" />
-                            <span className="font-medium">{isRTL ? 'المنتجات' : 'Products'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('orders')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative ${activeTab === 'orders'
-                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
-                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <ShoppingBag className="w-5 h-5" />
-                            <span className="font-medium">{isRTL ? 'الطلبات' : 'Orders'}</span>
-                            {stats.pendingOrders > 0 && (
-                                <span className={`absolute ${isRTL ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 min-w-[1.25rem] h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center px-1`}>
-                                    {stats.pendingOrders}
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('categories')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'categories'
-                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
-                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Grid className="w-5 h-5" />
-                            <span className="font-medium">{isRTL ? 'الأقسام' : 'Categories'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('notifications')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'notifications'
-                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
-                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Bell className="w-5 h-5" />
-                            <span className="font-medium">{isRTL ? 'الإشعارات' : 'Notifications'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('logs')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'logs'
-                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
-                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <ClipboardList className="w-5 h-5" />
-                            <span className="font-medium">{isRTL ? 'السجل' : 'Activity Log'}</span>
-                        </button>
-                    </nav>
-
-                    {/* Sidebar Footer */}
-                    <div className="p-4 border-t">
-                        <a
-                            href="/shop"
-                            className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors px-4 py-3 rounded-xl hover:bg-muted/50"
-                        >
-                            <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
-                            <span className="font-medium">{isRTL ? 'العودة للمتجر' : 'Back to Store'}</span>
-                        </a>
+                    {/* Mobile Tabs - Scrollable */}
+                    <div className="md:hidden flex items-center gap-2 py-2 overflow-x-auto scrollbar-none">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap relative",
+                                    activeTab === tab.id
+                                        ? 'bg-primary text-primary-foreground shadow-md'
+                                        : 'bg-muted/50 text-muted-foreground'
+                                )}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                                {tab.badge && tab.badge > 0 && (
+                                    <span className="bg-red-500 text-white text-[10px] px-1 py-0.5 rounded-full min-w-[1rem] text-center">
+                                        {tab.badge}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
                     </div>
-                </aside>
+                </div>
+            </div>
 
-                {/* Desktop Content Area */}
-                <main className={`flex-1 ${isRTL ? 'mr-64' : 'ml-64'}`}>
-                    {/* Desktop Header */}
-                    <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b shadow-sm">
-                        <div className="px-8 py-5 flex items-center justify-between">
+            {/* Content Area */}
+            <div className="container mx-auto px-4 py-6">
+                {/* Dashboard */}
+                {activeTab === 'dashboard' && (
+                    <div className="space-y-6">
+                        {/* Welcome Header */}
+                        <div className="flex items-center justify-between">
                             <div>
-                                <h1 className="text-2xl font-bold">
-                                    {activeTab === 'dashboard' && (isRTL ? 'لوحة التحكم' : 'Dashboard')}
-                                    {activeTab === 'products' && (isRTL ? 'المنتجات' : 'Products')}
-                                    {activeTab === 'orders' && (isRTL ? 'الطلبات' : 'Orders')}
-                                    {activeTab === 'categories' && (isRTL ? 'الأقسام' : 'Categories')}
-                                    {activeTab === 'notifications' && (isRTL ? 'الإشعارات' : 'Notifications')}
-                                    {activeTab === 'logs' && (isRTL ? 'سجل العمليات' : 'Activity Log')}
-                                </h1>
-                                <p className="text-sm text-muted-foreground">
-                                    {activeTab === 'dashboard' && (isRTL ? 'نظرة عامة على المتجر' : 'Overview of your store')}
-                                    {activeTab === 'products' && (isRTL ? 'إدارة منتجاتك' : 'Manage your products')}
-                                    {activeTab === 'orders' && (isRTL ? 'إدارة الطلبات' : 'Manage customer orders')}
-                                    {activeTab === 'categories' && (isRTL ? 'إدارة الأقسام' : 'Manage categories')}
-                                    {activeTab === 'notifications' && (isRTL ? 'إرسال إشعارات للعملاء' : 'Send notifications to customers')}
-                                    {activeTab === 'logs' && (isRTL ? 'جميع العمليات الإدارية' : 'All admin activities')}
-                                </p>
+                                <h1 className="text-2xl font-bold">{isRTL ? 'مرحباً بك' : 'Welcome back'} 👋</h1>
+                                <p className="text-muted-foreground">{isRTL ? 'لوحة تحكم المتجر' : 'Store Dashboard'}</p>
                             </div>
-                            <div className="flex items-center gap-3">
-                                {activeTab === 'products' && (
-                                    <Button onClick={handleAdd} className="h-11 px-6 shadow-lg">
-                                        <Plus className="w-5 h-5 me-2" />
+                        </div>
+
+                        {/* Quick Stats Grid */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <Card className="p-5 bg-gradient-to-br from-primary/10 to-primary/5 border-none hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveTab('orders')}>
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-primary/20 rounded-xl">
+                                        <ShoppingBag className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-3xl font-bold">{stats.pendingOrders}</p>
+                                        <p className="text-sm text-muted-foreground">{isRTL ? 'طلبات جديدة' : 'New Orders'}</p>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-5 bg-gradient-to-br from-green-500/10 to-green-500/5 border-none hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveTab('products')}>
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-green-500/20 rounded-xl">
+                                        <Package className="w-6 h-6 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-3xl font-bold">{stats.totalProducts}</p>
+                                        <p className="text-sm text-muted-foreground">{isRTL ? 'منتج' : 'Products'}</p>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-5 bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-none hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { setStockFilter('low_stock'); setActiveTab('products'); }}>
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-amber-500/20 rounded-xl">
+                                        <AlertTriangle className="w-6 h-6 text-amber-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-3xl font-bold">{stats.lowStock}</p>
+                                        <p className="text-sm text-muted-foreground">{isRTL ? 'مخزون منخفض' : 'Low Stock'}</p>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-5 bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-none hover:shadow-lg transition-shadow">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-500/20 rounded-xl">
+                                        <TrendingUp className="w-6 h-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-3xl font-bold">{stats.totalRevenue.toFixed(0)}</p>
+                                        <p className="text-sm text-muted-foreground">{isRTL ? 'الإيرادات' : 'Revenue'}</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
+
+                        {/* Quick Actions */}
+                        <Card className="p-5 border-none bg-card/50">
+                            <h2 className="font-semibold mb-4">{isRTL ? 'إجراءات سريعة' : 'Quick Actions'}</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-dashed" onClick={handleAdd}>
+                                    <Plus className="w-6 h-6 text-primary" />
+                                    <span className="text-xs">{isRTL ? 'منتج جديد' : 'Add Product'}</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-dashed" onClick={() => setActiveTab('notifications')}>
+                                    <Bell className="w-6 h-6 text-primary" />
+                                    <span className="text-xs">{isRTL ? 'إرسال إشعار' : 'Send Notification'}</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-dashed" onClick={() => setActiveTab('orders')}>
+                                    <ShoppingBag className="w-6 h-6 text-primary" />
+                                    <span className="text-xs">{isRTL ? 'عرض الطلبات' : 'View Orders'}</span>
+                                </Button>
+                                <Button variant="outline" className="h-auto py-4 flex-col gap-2 border-dashed" onClick={() => setActiveTab('categories')}>
+                                    <Grid className="w-6 h-6 text-primary" />
+                                    <span className="text-xs">{isRTL ? 'الأقسام' : 'Categories'}</span>
+                                </Button>
+                            </div>
+                        </Card>
+
+                        {/* Recent Orders Preview */}
+                        <Card className="p-5 border-none bg-card/50">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="font-semibold">{isRTL ? 'آخر الطلبات' : 'Recent Orders'}</h2>
+                                <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setActiveTab('orders')}>
+                                    {isRTL ? 'عرض الكل' : 'View All'}
+                                    <ChevronRight className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+                                </Button>
+                            </div>
+                            <div className="space-y-3">
+                                {orders?.slice(0, 5).map((order) => (
+                                    <div key={order.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                <ShoppingBag className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-sm">#{order.id}</p>
+                                                <p className="text-xs text-muted-foreground" dir="ltr">{order.phoneNumber}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-end">
+                                            <p className="font-bold text-sm text-primary">{order.totalAmount} {isRTL ? 'جنيه' : 'EGP'}</p>
+                                            <Badge variant={order.status === 'pending' ? 'secondary' : 'default'} className="text-xs">
+                                                {order.status === 'pending' ? (isRTL ? 'جديد' : 'New') : (isRTL ? 'مكتمل' : 'Done')}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!orders || orders.length === 0) && (
+                                    <p className="text-center text-muted-foreground text-sm py-4">{isRTL ? 'لا توجد طلبات' : 'No orders yet'}</p>
+                                )}
+                            </div>
+                        </Card>
+
+                        {/* Alerts */}
+                        {stats.lowStock > 0 && (
+                            <Card className="p-4 border-none bg-amber-50 dark:bg-amber-950/20">
+                                <div className="flex items-center gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                                    <div className="flex-1">
+                                        <p className="font-medium text-sm">{isRTL ? 'تنبيه المخزون' : 'Low Stock Alert'}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {isRTL ? `${stats.lowStock} منتجات قاربت على النفاد` : `${stats.lowStock} products running low`}
+                                        </p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => { setStockFilter('low_stock'); setActiveTab('products'); }}>
+                                        {isRTL ? 'عرض' : 'View'}
+                                    </Button>
+                                </div>
+                            </Card>
+                        )}
+
+                        {stats.outOfStock > 0 && (
+                            <Card className="p-4 border-none bg-red-50 dark:bg-red-950/20">
+                                <div className="flex items-center gap-3">
+                                    <Package className="w-5 h-5 text-red-600" />
+                                    <div className="flex-1">
+                                        <p className="font-medium text-sm">{isRTL ? 'نفذ من المخزون' : 'Out of Stock'}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {isRTL ? `${stats.outOfStock} منتجات نفذت` : `${stats.outOfStock} products out of stock`}
+                                        </p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => { setStockFilter('out_of_stock'); setActiveTab('products'); }}>
+                                        {isRTL ? 'عرض' : 'View'}
+                                    </Button>
+                                </div>
+                            </Card>
+                        )}
+                    </div>
+                )}
+
+                {/* Products */}
+                {activeTab === 'products' && (
+                    <div className="space-y-4">
+                        {/* Search and Filters */}
+                        <Card className="p-4 border-none bg-card/50">
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <div className="relative flex-1">
+                                    <Search className={cn("absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground", isRTL ? 'right-3' : 'left-3')} />
+                                    <Input
+                                        placeholder={isRTL ? 'بحث عن منتج...' : 'Search products...'}
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className={cn("h-11 rounded-xl bg-muted/50 border-none", isRTL ? 'pr-10' : 'pl-10')}
+                                    />
+                                </div>
+                                <div className="flex gap-2 overflow-x-auto">
+                                    <Button
+                                        variant={stockFilter === 'all' ? "default" : "outline"}
+                                        size="sm"
+                                        className="rounded-full whitespace-nowrap"
+                                        onClick={() => setStockFilter('all')}
+                                    >
+                                        {isRTL ? 'الكل' : 'All'} ({products.length})
+                                    </Button>
+                                    <Button
+                                        variant={stockFilter === 'low_stock' ? "default" : "outline"}
+                                        size="sm"
+                                        className={cn("rounded-full whitespace-nowrap", stockFilter === 'low_stock' ? 'bg-amber-500 hover:bg-amber-600' : 'text-amber-600 border-amber-200')}
+                                        onClick={() => setStockFilter('low_stock')}
+                                    >
+                                        {isRTL ? 'قليل' : 'Low'} ({stats.lowStock})
+                                    </Button>
+                                    <Button
+                                        variant={stockFilter === 'out_of_stock' ? "destructive" : "outline"}
+                                        size="sm"
+                                        className={cn("rounded-full whitespace-nowrap", stockFilter !== 'out_of_stock' && 'text-red-600 border-red-200')}
+                                        onClick={() => setStockFilter('out_of_stock')}
+                                    >
+                                        {isRTL ? 'نفذ' : 'Out'} ({stats.outOfStock})
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Category Filter */}
+                            <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-none">
+                                <Button
+                                    variant={selectedCategoryFilter === null ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="rounded-full whitespace-nowrap h-8 text-xs"
+                                    onClick={() => setSelectedCategoryFilter(null)}
+                                >
+                                    {isRTL ? 'كل الأقسام' : 'All Categories'}
+                                </Button>
+                                {categories.map(cat => (
+                                    <Button
+                                        key={cat.id}
+                                        variant={selectedCategoryFilter === cat.id ? "secondary" : "ghost"}
+                                        size="sm"
+                                        className="rounded-full whitespace-nowrap h-8 text-xs"
+                                        onClick={() => setSelectedCategoryFilter(cat.id)}
+                                    >
+                                        {cat.imageUrl} {cat.name}
+                                    </Button>
+                                ))}
+                            </div>
+
+                            {/* Mobile Add Button */}
+                            <div className="md:hidden mt-4">
+                                <Button onClick={handleAdd} className="w-full gap-2">
+                                    <Plus className="w-4 h-4" />
+                                    {isRTL ? 'إضافة منتج جديد' : 'Add New Product'}
+                                </Button>
+                            </div>
+                        </Card>
+
+                        {/* Products Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredProducts.map((product) => (
+                                <Card
+                                    key={product.id}
+                                    className="p-4 border-none flex gap-4 bg-card/50 hover:shadow-lg transition-all cursor-pointer group"
+                                    onClick={() => handleEdit(product)}
+                                >
+                                    {/* Product Image */}
+                                    <div className="w-20 h-20 rounded-xl bg-muted/50 overflow-hidden flex-shrink-0 relative group-hover:scale-105 transition-transform">
+                                        {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
+                                            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-4xl">
+                                                {product.imageUrl || <Package className="w-8 h-8 opacity-30" />}
+                                            </div>
+                                        )}
+                                        {(product.stock || 0) === 0 && (
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                <Package className="w-6 h-6 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Product Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <p className="font-bold truncate">{product.name}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{product.englishName}</p>
+                                            </div>
+                                            {getStockBadge(product.stock || 0)}
+                                        </div>
+                                        <div className="flex items-center justify-between mt-2">
+                                            <p className="font-bold text-primary">{product.price} <span className="text-xs text-muted-foreground">{isRTL ? 'جنيه' : 'EGP'}</span></p>
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align={isRTL ? "start" : "end"}>
+                                                        <DropdownMenuItem onClick={() => handleEdit(product)} className="gap-2">
+                                                            <Edit className="w-4 h-4" />
+                                                            {isRTL ? 'تعديل' : 'Edit'}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleDelete(product)} className="gap-2 text-destructive">
+                                                            <Trash2 className="w-4 h-4" />
+                                                            {isRTL ? 'حذف' : 'Delete'}
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+
+                        {filteredProducts.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-4">
+                                    <Package className="w-10 h-10 text-muted-foreground/30" />
+                                </div>
+                                <h3 className="font-bold text-lg">{isRTL ? 'لا توجد منتجات' : 'No products found'}</h3>
+                                <p className="text-sm text-muted-foreground max-w-xs mt-1">
+                                    {searchTerm ? (isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try searching with different keywords') : (isRTL ? 'إبدأ بإضافة منتجات جديدة' : 'Start by adding new products')}
+                                </p>
+                                {!searchTerm && (
+                                    <Button onClick={handleAdd} className="mt-6">
+                                        <Plus className="w-4 h-4 me-2" />
                                         {isRTL ? 'إضافة منتج' : 'Add Product'}
                                     </Button>
                                 )}
-                                <Button variant="ghost" size="icon" onClick={() => refetchProducts()}>
-                                    <RefreshCcw className="w-5 h-5" />
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Orders */}
+                {activeTab === 'orders' && <AdminOrders />}
+
+                {/* Categories */}
+                {activeTab === 'categories' && <AdminCategories />}
+
+                {/* Notifications */}
+                {activeTab === 'notifications' && (
+                    <div className="space-y-6 max-w-2xl">
+                        <Card className="p-6 border-none bg-card/50 space-y-4">
+                            <h2 className="text-lg font-bold">{isRTL ? 'إرسال إشعار' : 'Send Notification'}</h2>
+
+                            <div className="space-y-2">
+                                <Label>{isRTL ? 'العنوان' : 'Title'}</Label>
+                                <Input
+                                    value={pushData.title}
+                                    onChange={(e) => setPushData({ ...pushData, title: e.target.value })}
+                                    placeholder={isRTL ? 'مثال: عروض جديدة 🎉' : 'e.g., New Offers! 🎉'}
+                                    className="bg-muted/50 border-none h-12"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>{isRTL ? 'الرسالة' : 'Message'}</Label>
+                                <Textarea
+                                    value={pushData.message}
+                                    onChange={(e) => setPushData({ ...pushData, message: e.target.value })}
+                                    placeholder={isRTL ? 'أكتب رسالتك هنا...' : 'Write your message here...'}
+                                    className="bg-muted/50 border-none min-h-[120px]"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>{isRTL ? 'الرابط (اختياري)' : 'Link (Optional)'}</Label>
+                                <Input
+                                    value={pushData.link}
+                                    onChange={(e) => setPushData({ ...pushData, link: e.target.value })}
+                                    placeholder="/shop"
+                                    className="bg-muted/50 border-none h-12"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <Button
+                                onClick={() => pushMutation.mutate(pushData)}
+                                disabled={pushMutation.isPending || !pushData.title || !pushData.message}
+                                className="w-full h-12 text-base"
+                            >
+                                {pushMutation.isPending ? (isRTL ? 'جاري الإرسال...' : 'Sending...') : (isRTL ? 'إرسال الإشعار' : 'Send Notification')}
+                            </Button>
+                        </Card>
+
+                        <Card className="p-6 border-none bg-card/50 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="font-bold">{isRTL ? 'المنتظرين للمنتجات' : 'Waiting for Stock'}</h2>
+                                <Button variant="ghost" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/admin/product-notifications"] })}>
+                                    <RefreshCcw className="w-4 h-4" />
                                 </Button>
                             </div>
-                        </div>
-                    </header>
-
-                    {/* Desktop Content */}
-                    <div className="p-8">
-                        {activeTab === 'dashboard' && renderDashboard()}
-                        {activeTab === 'products' && renderProducts()}
-                        {activeTab === 'categories' && (
-                            <div>
-                                <AdminCategories />
-                            </div>
-                        )}
-                        {activeTab === 'orders' && (
-                            <div>
-                                <AdminOrders />
-                            </div>
-                        )}
-                        {activeTab === 'notifications' && renderNotifications()}
-                        {activeTab === 'logs' && (
-                            <div className="p-4">
-                                <AdminLogs />
-                            </div>
-                        )}
+                            <p className="text-sm text-muted-foreground">
+                                {isRTL ? 'العملاء الذين طلبوا إشعارهم عند توفر منتجات نفذت' : 'Customers waiting for out-of-stock products'}
+                            </p>
+                            <ProductNotificationsList isRTL={isRTL} />
+                        </Card>
                     </div>
-                </main>
-            </div>
+                )}
 
-            {/* MOBILE LAYOUT */}
-            <div className="lg:hidden">
-                {/* Mobile Content Area */}
-                <div className="pb-20">
-                    {activeTab === 'dashboard' && renderDashboard()}
-                    {activeTab === 'products' && renderProducts()}
-                    {activeTab === 'categories' && (
-                        <div className="p-4 pb-24">
-                            <h1 className="text-xl font-bold mb-4">{t('categories')}</h1>
-                            <AdminCategories />
-                        </div>
-                    )}
-                    {activeTab === 'orders' && (
-                        <div className="p-4 pb-24">
-                            <AdminOrders />
-                        </div>
-                    )}
-                    {activeTab === 'notifications' && renderNotifications()}
-                    {activeTab === 'logs' && (
-                        <div className="p-4 pb-24">
-                            <AdminLogs />
-                        </div>
-                    )}
-                </div>
-
-                {/* Mobile Bottom Navigation Bar */}
-                <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t z-40 safe-area-pb">
-                    <div className="flex justify-around items-center h-16">
-                        <button
-                            onClick={() => setActiveTab('dashboard')}
-                            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${activeTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground'}`}
-                        >
-                            <TrendingUp className="w-5 h-5" />
-                            <span className="text-xs font-medium">{isRTL ? 'الرئيسية' : 'Home'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('products')}
-                            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${activeTab === 'products' ? 'text-primary' : 'text-muted-foreground'}`}
-                        >
-                            <Package className="w-5 h-5" />
-                            <span className="text-xs font-medium">{isRTL ? 'المنتجات' : 'Products'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('orders')}
-                            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors relative ${activeTab === 'orders' ? 'text-primary' : 'text-muted-foreground'}`}
-                        >
-                            <ShoppingBag className="w-5 h-5" />
-                            {stats.pendingOrders > 0 && (
-                                <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                                    {stats.pendingOrders}
-                                </span>
-                            )}
-                            <span className="text-xs font-medium">{isRTL ? 'الطلبات' : 'Orders'}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('categories')}
-                            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${activeTab === 'categories' ? 'text-primary' : 'text-muted-foreground'}`}
-                        >
-                            <Grid className="w-5 h-5" />
-                            <span className="text-xs font-medium">{isRTL ? 'الأقسام' : 'Categories'}</span>
-                        </button>
-                    </div>
-                </nav>
+                {/* Logs */}
+                {activeTab === 'logs' && <AdminLogs />}
             </div>
 
             {/* Add/Edit Dialog */}

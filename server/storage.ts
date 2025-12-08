@@ -74,7 +74,16 @@ export interface IStorage {
 
   // Admin log operations
   createAdminLog(log: AdminLogData): Promise<AdminLog>;
-  getAdminLogs(limit?: number): Promise<AdminLog[]>;
+  getAdminLogs(filters?: AdminLogFilters): Promise<AdminLog[]>;
+}
+
+export interface AdminLogFilters {
+  limit?: number;
+  action?: string;
+  adminUserId?: string;
+  targetType?: string;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 // Push subscription data type
@@ -655,8 +664,29 @@ export class MemStorage implements IStorage {
     return log;
   }
 
-  async getAdminLogs(limit: number = 100): Promise<AdminLog[]> {
-    return Array.from(this.adminLogs.values())
+  async getAdminLogs(filters: AdminLogFilters = {}): Promise<AdminLog[]> {
+    const { limit = 100, action, adminUserId, targetType, startDate, endDate } = filters;
+
+    let logs = Array.from(this.adminLogs.values());
+
+    // Apply filters
+    if (action) {
+      logs = logs.filter(log => log.action === action);
+    }
+    if (adminUserId) {
+      logs = logs.filter(log => log.adminUserId === adminUserId);
+    }
+    if (targetType) {
+      logs = logs.filter(log => log.targetType === targetType);
+    }
+    if (startDate) {
+      logs = logs.filter(log => new Date(log.timestamp) >= startDate);
+    }
+    if (endDate) {
+      logs = logs.filter(log => new Date(log.timestamp) <= endDate);
+    }
+
+    return logs
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, limit);
   }

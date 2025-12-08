@@ -120,7 +120,8 @@ export function CategoryRow({
     activeId,
     onSelect,
     isRTL = false,
-}: CategoryRowProps) {
+    size = 'md',
+}: CategoryRowProps & { size?: 'sm' | 'md' | 'lg' }) {
     return (
         <div className="relative">
             <div
@@ -139,7 +140,7 @@ export function CategoryRow({
                     }}
                     isActive={activeId === null}
                     onClick={() => onSelect(null)}
-                    size="md"
+                    size={size}
                     isRTL={isRTL}
                 />
 
@@ -149,7 +150,7 @@ export function CategoryRow({
                         category={category}
                         isActive={activeId === category.id}
                         onClick={() => onSelect(category.id)}
-                        size="md"
+                        size={size}
                         isRTL={isRTL}
                     />
                 ))}

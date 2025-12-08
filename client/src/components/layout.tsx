@@ -8,16 +8,30 @@ import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useAuthModal } from "@/components/auth/auth-modal-context";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const { openLogin } = useAuthModal();
   const isRTL = i18n.language === 'ar';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState("");
+  const [desktopSearchQuery, setDesktopSearchQuery] = useState("");
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Listen for clear-search event from shop.tsx
+  useEffect(() => {
+    const handleClearSearch = () => {
+      setMobileSearchQuery('');
+      setDesktopSearchQuery('');
+    };
+    window.addEventListener('clear-search', handleClearSearch);
+    return () => window.removeEventListener('clear-search', handleClearSearch);
+  }, []);
 
   const { data: cartItems = [] } = useQuery<any[]>({
     queryKey: ["/api/cart"],
@@ -26,19 +40,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const cartCount = cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
 
-  // Hide layout for admin pages (admin has its own layout)
+  // Admin pages use their own content but still get the header
   const isAdminPage = location.startsWith('/admin');
-
-  if (isAdminPage) {
-    return <>{children}</>;
-  }
 
   const navLinks = [
     { href: "/", label: isRTL ? 'المتجر' : 'Shop', icon: Home },
     { href: "/cart", label: isRTL ? 'السلة' : 'Cart', icon: ShoppingCart, badge: cartCount },
   ];
 
-  const isShopPage = location === "/" || location === "/shop";
+  const isShopPage = location === "/" || location.startsWith("/?") || location === "/shop" || location.startsWith("/shop?");
+
+  // Debounced search-as-you-type for mobile
+  const handleMobileSearchChange = (value: string) => {
+    setMobileSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (value.trim()) {
+        setLocation(`/?search=${encodeURIComponent(value.trim())}`);
+      } else {
+        setLocation('/');
+      }
+    }, 300);
+  };
+
+  // Debounced search-as-you-type for desktop
+  const handleDesktopSearchChange = (value: string) => {
+    setDesktopSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (value.trim()) {
+        setLocation(`/?search=${encodeURIComponent(value.trim())}`);
+      } else {
+        setLocation('/');
+      }
+    }, 300);
+  };
 
   const handleMobileSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,19 +83,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const handleDesktopSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (desktopSearchQuery.trim()) {
+      setLocation(`/?search=${encodeURIComponent(desktopSearchQuery.trim())}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Desktop Header */}
+      {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Logo */}
+        <div className="w-full px-4 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
+            {/* Desktop Logo - Hidden on Mobile */}
             <Link href="/">
-              <a className="flex items-center gap-3 hover:opacity-80 transition-opacity shrink-0">
+              <a className="hidden md:flex items-center gap-3 hover:opacity-80 transition-opacity shrink-0">
                 <div className="p-1 bg-white rounded-xl shadow-sm">
                   <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
                 </div>
-                <div className="hidden sm:block">
+                <div className="hidden lg:block">
                   <h1 className="text-xl font-bold text-primary leading-tight">
                     {t('app_name')}
                   </h1>
@@ -67,91 +110,52 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </a>
             </Link>
 
-            {/* Mobile Search Bar - Centered */}
+            {/* Unified Search Bar - Responsive for both Mobile and Desktop */}
             {isShopPage && (
-              <form onSubmit={handleMobileSearch} className="flex-1 max-w-sm mx-3 md:hidden">
-                <div className="relative">
+              <div className="flex-1 max-w-lg mx-2 md:mx-6">
+                <div className="relative w-full">
                   <Search className={cn(
                     "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3"
+                    isRTL ? "right-3 md:right-4" : "left-3 md:left-4"
                   )} />
                   <Input
                     className={cn(
-                      "h-10 rounded-xl bg-muted/50 border-0 text-sm",
-                      isRTL ? "pr-9 pl-3" : "pl-9 pr-3"
+                      "h-10 md:h-11 rounded-xl bg-muted/50 border-0 text-sm w-full",
+                      isRTL ? "pr-9 md:pr-11 pl-8 md:pl-10" : "pl-9 md:pl-11 pr-8 md:pr-10"
                     )}
                     placeholder={t('search_placeholder')}
-                    value={mobileSearchQuery}
-                    onChange={(e) => setMobileSearchQuery(e.target.value)}
+                    value={desktopSearchQuery}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDesktopSearchQuery(value);
+                      setMobileSearchQuery(value); // Keep in sync
+                      window.dispatchEvent(new CustomEvent('header-search', { detail: value }));
+                    }}
                   />
+                  {desktopSearchQuery && (
+                    <button
+                      onClick={() => {
+                        setDesktopSearchQuery('');
+                        setMobileSearchQuery('');
+                        window.dispatchEvent(new CustomEvent('header-search', { detail: '' }));
+                      }}
+                      className={cn(
+                        "absolute top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full",
+                        isRTL ? "left-2 md:left-3" : "right-2 md:right-3"
+                      )}
+                    >
+                      <X className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
                 </div>
-              </form>
-            )}
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => (
-                <Link key={link.href} href={link.href}>
-                  <a
-                    className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${location === link.href
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                      }`}
-                  >
-                    <link.icon className="w-5 h-5" />
-                    <span>{link.label}</span>
-                    {link.badge && link.badge > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
-                      >
-                        {link.badge}
-                      </Badge>
-                    )}
-                  </a>
-                </Link>
-              ))}
-            </nav>
-
-            {/* Desktop Actions */}
-            <div className="hidden md:flex items-center gap-3">
-              <LanguageSwitcher />
-              {user?.isAdmin && (
-                <Link href="/admin">
-                  <a className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 rounded-full hover:bg-orange-500/20 transition-colors cursor-pointer">
-                    <LayoutDashboard className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-600">{t('admin_panel')}</span>
-                  </a>
-                </Link>
-              )}
-              {user ? (
-                <Link href="/profile">
-                  <a className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full hover:bg-muted transition-colors cursor-pointer">
-                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <span className="text-sm font-medium">{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.phoneNumber}</span>
-                  </a>
-                </Link>
-              ) : (
-                <Link href="/auth">
-                  <a className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full hover:bg-primary/20 transition-colors cursor-pointer">
-                    <User className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">{t('login')}</span>
-                  </a>
-                </Link>
-              )}
-            </div>
-
-            {/* Mobile Menu Button - Using Sheet Sidebar */}
-            <div className="flex md:hidden items-center gap-2">
-              <LanguageSwitcher />
-
+              </div>
+            )}            {/* Mobile: Logo Menu Trigger */}
+            <div className="md:hidden order-first">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Menu className="w-6 h-6" />
-                  </Button>
+                  <button className="p-1 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                    <img src="/logo.png" alt="Menu" className="w-10 h-10 object-contain" />
+                  </button>
                 </SheetTrigger>
                 <SheetContent side={isRTL ? "right" : "left"} className="w-[300px] sm:w-[350px] p-0 border-r-0 border-l-0 overflow-y-auto bg-background/95 backdrop-blur-xl">
                   <div className="relative bg-gradient-premium h-40 w-full overflow-hidden">
@@ -233,17 +237,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         {isRTL ? 'آخرى' : 'Other'}
                       </p>
                       {!user && (
-                        <Link href="/auth">
-                          <a
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-4 px-4 py-3.5 rounded-xl font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors card-pressable"
-                          >
-                            <User className="w-5 h-5" />
-                            <span>{t('login')}</span>
-                          </a>
-                        </Link>
+                        <button
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            openLogin();
+                          }}
+                          className="flex items-center gap-4 px-4 py-3.5 rounded-xl font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors card-pressable w-full text-left rtl:text-right"
+                        >
+                          <User className="w-5 h-5" />
+                          <span>{t('login')}</span>
+                        </button>
                       )}
-                      {/* Could add Support / About links here */}
                     </div>
                   </div>
 
@@ -254,6 +258,91 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </div>
                 </SheetContent>
               </Sheet>
+            </div>
+
+
+
+            {/* Mobile: Language Switcher */}
+            <div className="md:hidden order-last">
+              <LanguageSwitcher />
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href}>
+                  <a
+                    className={cn(
+                      "relative flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200",
+                      location === link.href || (link.href === '/' && location === '/shop')
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    <link.icon className="w-5 h-5" />
+                    <span>{link.label}</span>
+                    {link.badge && link.badge > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
+                      >
+                        {link.badge}
+                      </Badge>
+                    )}
+                  </a>
+                </Link>
+              ))}
+            </nav>
+
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center gap-3">
+              <LanguageSwitcher />
+              {user?.isAdmin && (
+                <Link href="/admin">
+                  <a className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200",
+                    isAdminPage
+                      ? "bg-red-500/10 text-red-600"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span className="text-sm font-medium">{t('admin_panel')}</span>
+                  </a>
+                </Link>
+              )}
+              {user ? (
+                <Link href="/profile">
+                  <a className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200",
+                    location === '/profile' || location.startsWith('/profile/')
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted/50 hover:bg-muted"
+                  )}>
+                    <div className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center",
+                      location === '/profile' || location.startsWith('/profile/')
+                        ? "bg-white/20"
+                        : "bg-primary/20"
+                    )}>
+                      <User className={cn(
+                        "w-4 h-4",
+                        location === '/profile' || location.startsWith('/profile/')
+                          ? "text-white"
+                          : "text-primary"
+                      )} />
+                    </div>
+                    <span className="text-sm font-medium">{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.phoneNumber}</span>
+                  </a>
+                </Link>
+              ) : (
+                <button
+                  onClick={() => openLogin()}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full hover:bg-primary/20 transition-colors cursor-pointer border-0"
+                >
+                  <User className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-primary">{t('login')}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

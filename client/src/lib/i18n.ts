@@ -4,6 +4,9 @@ import { initReactI18next } from 'react-i18next';
 import en from '../locales/en.json';
 import ar from '../locales/ar.json';
 
+// Get language from localStorage, default to Arabic
+const savedLanguage = localStorage.getItem('i18n-language') || 'ar';
+
 i18n
     .use(initReactI18next)
     .init({
@@ -11,7 +14,7 @@ i18n
             en: { translation: en },
             ar: { translation: ar },
         },
-        lng: 'ar', // default language set to Arabic
+        lng: savedLanguage, // Use saved language or default to Arabic
         fallbackLng: 'en',
         interpolation: {
             escapeValue: false, // react already safes from xss
@@ -22,6 +25,8 @@ i18n
 i18n.on('languageChanged', (lng) => {
     document.documentElement.dir = lng === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lng;
+    // Save language preference to localStorage
+    localStorage.setItem('i18n-language', lng);
 });
 
 // Set initial direction
