@@ -86,65 +86,76 @@ export default function AdminLogs() {
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold">{isRTL ? 'سجل العمليات' : 'Activity Logs'}</h2>
-                    <p className="text-sm text-muted-foreground">
-                        {isRTL ? 'جميع العمليات الإدارية' : 'All admin activities'}
-                    </p>
+            <Card className="p-4 border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-bold">{isRTL ? 'سجل العمليات' : 'Activity Logs'}</h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            {isRTL ? 'جميع العمليات الإدارية وتغييرات النظام' : 'All admin activities and system changes'}
+                        </p>
+                    </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => refetch()}>
-                    <RefreshCcw className="w-5 h-5" />
-                </Button>
-            </div>
+            </Card>
 
             {/* Logs List */}
             {logs.length === 0 ? (
-                <Card className="p-8 text-center border-none bg-muted/30">
-                    <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                    <h3 className="font-semibold mb-1">{isRTL ? 'لا توجد سجلات' : 'No logs yet'}</h3>
-                    <p className="text-sm text-muted-foreground">
+                <Card className="p-12 text-center border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm min-h-[300px] flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                        <ClipboardList className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-1">{isRTL ? 'لا توجد سجلات' : 'No logs yet'}</h3>
+                    <p className="text-muted-foreground">
                         {isRTL ? 'ستظهر العمليات الإدارية هنا' : 'Admin activities will appear here'}
                     </p>
                 </Card>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                     {logs.map((log) => {
                         const details = parseDetails(log.details);
                         return (
-                            <Card key={log.id} className="p-4 border-none bg-card/80 backdrop-blur-sm">
-                                <div className="flex items-start gap-3">
-                                    <div className={`p-2 rounded-lg ${getActionColor(log.action)}`}>
+                            <Card key={log.id} className="p-4 border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm hover:bg-white/90 dark:hover:bg-slate-900/90 transition-all">
+                                <div className="flex items-start gap-4">
+                                    <div className={`p-3 rounded-xl ${getActionColor(log.action)} mt-1 shadow-sm`}>
                                         {getActionIcon(log.action)}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Badge variant="outline" className={`text-xs px-2 py-0.5 ${getActionColor(log.action)}`}>
-                                                {getActionLabel(log.action)}
-                                            </Badge>
-                                            <span className="text-xs text-muted-foreground">
-                                                #{log.targetId}
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className={`text-xs px-2.5 py-0.5 rounded-lg border-none bg-opacity-10 dark:bg-opacity-20 ${getActionColor(log.action)}`}>
+                                                    {getActionLabel(log.action)}
+                                                </Badge>
+                                                <span className="text-xs text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded">
+                                                    #{log.targetId}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">
+                                                {formatTime(log.timestamp)}
                                             </span>
                                         </div>
-                                        <p className="text-sm font-medium truncate">
-                                            {log.adminName}
-                                        </p>
-                                        {details.name && (
-                                            <p className="text-xs text-muted-foreground truncate">
-                                                {details.name || details.deletedProductName}
-                                            </p>
-                                        )}
+
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 text-sm">
+                                            <span className="font-semibold text-foreground/90">{log.adminName}</span>
+                                            {details.name && (
+                                                <>
+                                                    <span className="hidden sm:inline text-muted-foreground">•</span>
+                                                    <span className="text-muted-foreground truncate">
+                                                        {details.name || details.deletedProductName}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
+
                                         {details.newStatus && (
-                                            <p className="text-xs text-muted-foreground">
-                                                {isRTL ? 'الحالة:' : 'Status:'} {details.newStatus}
-                                            </p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-xs text-muted-foreground">{isRTL ? 'الحالة الجديدة:' : 'New Status:'}</span>
+                                                <Badge variant="secondary" className="text-[10px] h-5">
+                                                    {details.newStatus}
+                                                </Badge>
+                                            </div>
                                         )}
                                     </div>
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {formatTime(log.timestamp)}
-                                    </span>
                                 </div>
                             </Card>
                         );

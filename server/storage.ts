@@ -112,6 +112,7 @@ export class MemStorage implements IStorage {
   private orderItems: Map<number, OrderItem> = new Map();
   private productNotifications: Map<number, ProductNotification> = new Map();
   private pushSubscriptions: Map<string, PushSubscriptionData> = new Map();
+  private adminLogs: Map<number, AdminLog> = new Map();
 
   private categoryIdCounter = 1;
   private productIdCounter = 1;
@@ -119,6 +120,7 @@ export class MemStorage implements IStorage {
   private orderIdCounter = 1;
   private orderItemIdCounter = 1;
   private notificationIdCounter = 1;
+  private adminLogIdCounter = 1;
 
   constructor() {
     this.seedData();
@@ -640,6 +642,23 @@ export class MemStorage implements IStorage {
 
   async removePushSubscription(userId: string): Promise<void> {
     this.pushSubscriptions.delete(userId);
+  }
+
+  // Admin log operations
+  async createAdminLog(data: AdminLogData): Promise<AdminLog> {
+    const log: AdminLog = {
+      id: this.adminLogIdCounter++,
+      ...data,
+      timestamp: new Date(),
+    };
+    this.adminLogs.set(log.id, log);
+    return log;
+  }
+
+  async getAdminLogs(limit: number = 100): Promise<AdminLog[]> {
+    return Array.from(this.adminLogs.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, limit);
   }
 }
 

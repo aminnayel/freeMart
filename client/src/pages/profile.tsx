@@ -501,7 +501,7 @@ export default function Profile() {
                           ? `${profileData.firstName} ${profileData.lastName}`
                           : isRTL ? 'مرحباً بك' : 'Welcome'}
                       </h2>
-                      <p className="text-sm text-muted-foreground truncate" dir="ltr">
+                      <p className="text-sm text-muted-foreground truncate text-center" dir="ltr">
                         {profileData.phoneNumber || profileData.email}
                       </p>
                     </div>

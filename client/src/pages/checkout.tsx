@@ -10,8 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { CreditCard, MapPin, Banknote, ShoppingBag, CheckCircle2, Package, ArrowRight, ChevronRight, Home, Plus } from "lucide-react";
+import { CreditCard, MapPin, Banknote, ShoppingBag, CheckCircle2, Package, ArrowRight, Home, Plus, ChevronRight, User } from "lucide-react";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronUp } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export default function Checkout() {
   const [, setLocation] = useLocation();
@@ -32,13 +35,13 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [notes, setNotes] = useState("");
   const [saveAddress, setSaveAddress] = useState(true);
+  const [currentStep, setCurrentStep] = useState(1);
 
   // Initialize with user data
   useEffect(() => {
     if (user) {
       if (user.deliveryAddress) {
         setDeliveryType('saved');
-        // Still populate state for submission
         setDeliveryAddress(user.deliveryAddress);
         setCity(user.city || "");
         setPostalCode(user.postalCode || "");
@@ -79,10 +82,6 @@ export default function Checkout() {
         subtotal: (parseFloat(item.product.price) * item.quantity).toFixed(2),
       }));
 
-      // Use either the new entered address or the saved one depending on current state
-      // But we are syncing state anyway, so just use state variables.
-      // Important: PhoneNumber is ALWAYS from the user profile now.
-
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,17 +90,20 @@ export default function Checkout() {
           orderData: {
             totalAmount: totalAmount.toFixed(2),
             paymentMethod,
-            deliveryAddress,
-            city,
-            postalCode,
-            phoneNumber: user?.phoneNumber, // Always use registered phone
+            deliveryAddress: deliveryType === 'saved' ? user?.deliveryAddress : deliveryAddress,
+            city: deliveryType === 'saved' ? user?.city : city,
+            postalCode: deliveryType === 'saved' ? user?.postalCode : postalCode,
+            phoneNumber: user?.phoneNumber,
             notes,
             status: "pending",
           },
           orderItems,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create order");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to create order");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -111,12 +113,12 @@ export default function Checkout() {
         title: t('order_placed'),
         description: t('order_placed_desc'),
       });
-      setLocation("/profile"); // Redirect to orders/profile
+      setLocation("/profile");
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: t('error'),
-        description: t('error_place_order'),
+        description: error.message || t('error_place_order'),
         variant: "destructive",
       });
     },
@@ -130,13 +132,18 @@ export default function Checkout() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Address Validation
-    if (!deliveryAddress || !city) {
-      toast({
-        title: t('missing_info'),
-        description: t('fill_delivery_details'),
-        variant: "destructive",
-      });
+    // Validation
+    if (deliveryType === 'new') {
+      if (!deliveryAddress || !city) {
+        toast({
+          title: t('missing_info'),
+          description: t('fill_delivery_details'),
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (!user?.deliveryAddress) {
+      setDeliveryType('new');
       return;
     }
 
@@ -149,14 +156,14 @@ export default function Checkout() {
       return;
     }
 
-    // Save address if it's a new one and checkbox is checked
+    // Save address if new
     if (deliveryType === 'new' && saveAddress) {
       try {
         await updateProfileMutation.mutateAsync({
           deliveryAddress,
           city,
           postalCode,
-          phoneNumber: user.phoneNumber, // Don't change phone, keep existing
+          phoneNumber: user.phoneNumber,
         });
       } catch (error) {
         console.error("Failed to save address", error);
@@ -168,14 +175,14 @@ export default function Checkout() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto min-h-[60vh] flex flex-col items-center justify-center p-6">
-        <Card className="p-8 text-center border-none shadow-xl bg-white/50 backdrop-blur-xl rounded-3xl w-full">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-muted/20">
+        <Card className="p-12 text-center border-none shadow-xl bg-background rounded-[2rem] max-w-lg w-full">
+          <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShoppingBag className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">{t('cart_empty')}</h2>
-          <p className="text-muted-foreground mb-8">{t('add_products_checkout')}</p>
-          <Button onClick={() => setLocation("/")} size="lg" className="rounded-2xl shadow-lg w-full sm:w-auto px-8">
+          <h2 className="text-3xl font-bold mb-3">{t('cart_empty')}</h2>
+          <p className="text-muted-foreground mb-8 text-lg">{t('add_products_checkout')}</p>
+          <Button onClick={() => setLocation("/")} size="lg" className="rounded-full shadow-lg hover:shadow-primary/25 h-14 px-8 text-lg font-bold w-full">
             {t('continue_shopping')}
           </Button>
         </Card>
@@ -184,199 +191,313 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/10 pb-40 lg:pb-10 page-transition" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Checkout Header - Fixed below main navbar */}
-      <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b shadow-sm">
-        <div className="container mx-auto max-w-2xl text-center relative py-4">
-          <h1 className="text-lg font-bold">{t('checkout')}</h1>
-        </div>
-
-        {/* Progress Indicator */}
-        <div className="flex items-center justify-center gap-2 max-w-xs mx-auto pb-3">
-          <div className="h-1 flex-1 bg-primary rounded-full"></div>
-          <div className="h-1 flex-1 bg-primary rounded-full"></div>
-          <div className="h-1 flex-1 bg-muted rounded-full"></div>
-        </div>
-        <div className="flex justify-between max-w-xs mx-auto text-[10px] text-muted-foreground px-1 font-medium pb-3">
-          <span>{t('cart')}</span>
-          <span className="text-primary">{t('checkout')}</span>
-          <span>{t('confirmation')}</span>
+    <div className="min-h-screen bg-muted/10 pb-32 lg:pb-12 page-transition" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header */}
+      <div className="bg-background border-b sticky top-0 z-30 backdrop-blur-xl bg-background/80 w-full">
+        <div className="container mx-auto max-w-5xl px-4 py-4 lg:py-6">
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" className="gap-2" onClick={() => setLocation('/cart')}>
+              <ArrowRight className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+              {t('back_to_cart')}
+            </Button>
+            <div className="font-bold text-lg hidden sm:block">{t('checkout')}</div>
+            <div className="w-24"></div>
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6 max-w-3xl space-y-5">
-        <form id="checkout-form" onSubmit={handleSubmit}>
+      <div className="container mx-auto max-w-5xl px-4 py-8">
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12">
 
-          {/* Delivery Section - Card Style */}
-          <section className="space-y-3 pt-2">
-            <h2 className="text-sm font-bold text-muted-foreground px-1 uppercase tracking-wider">{t('delivery_address')}</h2>
-            <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-slate-900 rounded-2xl">
-              {/* Options Logic */}
-              {user?.deliveryAddress && (
-                <div
-                  className={`p-4 flex items-center gap-4 cursor-pointer transition-colors border-b last:border-0 ${deliveryType === 'saved' ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
-                  onClick={() => {
-                    setDeliveryType('saved');
-                    setDeliveryAddress(user.deliveryAddress || "");
-                    setCity(user.city || "");
-                    setPostalCode(user.postalCode || "");
-                  }}
+          {/* Main Form Section */}
+          <div className="lg:col-span-7 space-y-8">
+            <form id="checkout-form" onSubmit={handleSubmit} className="space-y-8">
+
+              {/* Step 1: Delivery */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">1</div>
+                  <h2 className="text-xl font-bold">{t('delivery_address')}</h2>
+                </div>
+
+                <Card className="overflow-hidden border-none shadow-md rounded-3xl bg-card">
+                  {user?.deliveryAddress && (
+                    <div
+                      className={`p-5 flex items-start gap-4 cursor-pointer transition-all border-b border-border/50 ${deliveryType === 'saved' ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                      onClick={() => setDeliveryType('saved')}
+                    >
+                      <div className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${deliveryType === 'saved' ? 'border-primary' : 'border-muted-foreground/30'}`}>
+                        {deliveryType === 'saved' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Home className="w-4 h-4 text-primary" />
+                          <span className="font-bold">{t('saved_address')}</span>
+                        </div>
+                        <p className="text-muted-foreground leading-relaxed text-sm">
+                          {user.deliveryAddress}, {user.city}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className={`p-5 flex items-start gap-4 cursor-pointer transition-all ${deliveryType === 'new' ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                    onClick={() => setDeliveryType('new')}
+                  >
+                    <div className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${deliveryType === 'new' ? 'border-primary' : 'border-muted-foreground/30'}`}>
+                      {deliveryType === 'new' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Plus className="w-4 h-4 text-primary" />
+                        <span className="font-bold">{t('add_new_address')}</span>
+                      </div>
+
+                      {/* Expanded Form for New Address */}
+                      <div className={`grid gap-4 transition-all duration-300 ${deliveryType === 'new' ? 'grid-rows-1 opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 overflow-hidden mt-0'}`}>
+                        <div className="space-y-4 min-h-0">
+                          <div className="space-y-2">
+                            <Label>{t('street_address')}</Label>
+                            <Textarea
+                              value={deliveryAddress}
+                              onChange={(e) => setDeliveryAddress(e.target.value)}
+                              placeholder={t('street_address_placeholder')}
+                              className="bg-background rounded-xl resize-none"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>{t('city')}</Label>
+                              <Input
+                                value={city}
+                                onChange={(e) => setCity(e.target.value)}
+                                className="bg-background rounded-xl h-12"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>{t('postal_code')}</Label>
+                              <Input
+                                value={postalCode}
+                                onChange={(e) => setPostalCode(e.target.value)}
+                                className="bg-background rounded-xl h-12"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-2">
+                            <Checkbox id="save-addr" checked={saveAddress} onCheckedChange={(c: boolean) => setSaveAddress(!!c)} />
+                            <Label htmlFor="save-addr" className="font-normal cursor-pointer">{t('save_address_future')}</Label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Step 2: Payment */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">2</div>
+                  <h2 className="text-xl font-bold">{t('payment_method')}</h2>
+                </div>
+
+                <Card className="overflow-hidden border-none shadow-md rounded-3xl bg-card">
+                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="gap-0" dir={isRTL ? 'rtl' : 'ltr'}>
+                    <div className={`flex items-center p-5 border-b border-border/50 cursor-pointer transition-colors ${paymentMethod === 'cod' ? 'bg-primary/5' : 'hover:bg-muted/50'}`} onClick={() => setPaymentMethod('cod')}>
+                      <RadioGroupItem value="cod" id="cod" className="sr-only" />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center me-4 transition-colors ${paymentMethod === 'cod' ? 'border-primary' : 'border-muted-foreground/30'}`}>
+                        {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      </div>
+                      <div className="flex-1 flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600">
+                          <Banknote className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm">{t('cash_on_delivery')}</div>
+                          <div className="text-xs text-muted-foreground">{t('pay_when_receive')}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`flex items-center p-5 cursor-pointer transition-colors ${paymentMethod === 'visa' ? 'bg-primary/5' : 'hover:bg-muted/50'}`} onClick={() => setPaymentMethod('visa')}>
+                      <RadioGroupItem value="visa" id="visa" className="sr-only" />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center me-4 transition-colors ${paymentMethod === 'visa' ? 'border-primary' : 'border-muted-foreground/30'}`}>
+                        {paymentMethod === 'visa' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      </div>
+                      <div className="flex-1 flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600">
+                          <CreditCard className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm">{t('credit_card')}</div>
+                          <div className="text-xs text-muted-foreground">{t('pay_securely_online')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </Card>
+              </div>
+
+              {/* Step 3: Contact Info */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">3</div>
+                  <h2 className="text-xl font-bold">{t('contact_info')}</h2>
+                </div>
+                <Card className="p-5 border-none shadow-md rounded-3xl bg-card flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-0.5">{t('receiving_order_as')}</div>
+                      <div className="font-bold text-lg leading-none flex items-center gap-2">
+                        <span dir="ltr">{user?.phoneNumber}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </form>
+          </div>
+
+          {/* Sticky Sidebar for Order Summary */}
+          <div className="hidden lg:block lg:col-span-5 h-[fit-content] sticky top-24">
+            <Card className="border-none shadow-xl bg-card rounded-[2rem] overflow-hidden">
+              <div className="p-6 lg:p-8 bg-muted/30">
+                <h2 className="text-xl font-bold mb-6">{t('order_summary')}</h2>
+                <div className="space-y-4">
+                  {cartItems.map((item: any) => (
+                    <div key={item.id} className="flex gap-4">
+                      <div className="w-16 h-16 rounded-xl bg-background overflow-hidden flex-shrink-0 border shadow-sm">
+                        <div className="w-full h-full flex items-center justify-center text-2xl">
+                          {(item.product.imageUrl?.startsWith('http') || item.product.imageUrl?.startsWith('/')) ? (
+                            <img
+                              src={item.product.imageUrl}
+                              alt={item.product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            item.product.imageUrl || "📦"
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm line-clamp-2">{item.product.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1 text-end" dir="ltr">
+                          {item.quantity} x {item.product.price}
+                        </div>
+                      </div>
+                      <div className="font-bold text-sm">
+                        {(item.quantity * parseFloat(item.product.price)).toFixed(0)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 lg:p-8 space-y-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t('subtotal')}</span>
+                    <span className="font-medium">{total.toFixed(0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t('delivery_fee')}</span>
+                    <span className="font-medium text-green-600">{t('free')}</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex justify-between items-end">
+                  <span className="font-bold text-lg">{t('total')}</span>
+                  <span className="font-bold text-2xl text-primary">
+                    {total.toFixed(0)} <span className="text-sm font-normal text-muted-foreground">{isRTL ? 'ج.م' : 'EGP'}</span>
+                  </span>
+                </div>
+
+                <Button
+                  size="lg"
+                  className="w-full h-14 rounded-2xl text-lg font-bold shadow-lg hover:shadow-primary/25 mt-4"
+                  onClick={handleSubmit}
+                  disabled={createOrderMutation.isPending}
                 >
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${deliveryType === 'saved' ? 'border-primary' : 'border-muted-foreground'}`}>
-                    {deliveryType === 'saved' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Home className="w-4 h-4 text-primary" />
-                      <span className="font-semibold text-sm">{t('saved_address')}</span>
-                    </div>
-                    <p className="text-sm text-foreground/80 leading-snug line-clamp-2">{user.deliveryAddress}, {user.city}</p>
-                  </div>
-                </div>
-              )}
+                  {createOrderMutation.isPending ? t('placing_order') : t('place_order')}
+                  {!createOrderMutation.isPending && <ArrowRight className={`w-5 h-5 ms-2 ${isRTL ? 'rotate-180' : ''}`} />}
+                </Button>
 
-              <div
-                className={`p-4 flex items-center gap-4 cursor-pointer transition-colors ${deliveryType === 'new' ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
-                onClick={() => {
-                  setDeliveryType('new');
-                  setDeliveryAddress("");
-                  setCity("");
-                  setPostalCode("");
-                }}
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${deliveryType === 'new' ? 'border-primary' : 'border-muted-foreground'}`}>
-                  {deliveryType === 'new' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Plus className="w-4 h-4 text-primary" />
-                    <span className="font-semibold text-sm">{t('add_new_address')}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Form fields only show when New Address is active OR editing */}
-              {deliveryType === 'new' && (
-                <div className="p-4 pt-0 space-y-4 animate-in slide-in-from-top-2">
-                  <div className="space-y-4 pt-4 border-t">
-                    <div className="space-y-2">
-                      <Label className="text-xs">{t('street_address')}</Label>
-                      <Textarea
-                        value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        placeholder={t('street_address_placeholder')}
-                        className="bg-muted/30 border-transparent focus:bg-background rounded-xl resize-none min-h-[80px]"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs">{t('city')}</Label>
-                        <Input
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder={t('city')}
-                          className="bg-muted/30 border-transparent focus:bg-background rounded-xl h-11"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">{t('postal_code')}</Label>
-                        <Input
-                          value={postalCode}
-                          onChange={(e) => setPostalCode(e.target.value)}
-                          placeholder={t('postal_code')}
-                          className="bg-muted/30 border-transparent focus:bg-background rounded-xl h-11"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pt-2">
-                      <Checkbox
-                        id="save-new"
-                        checked={saveAddress}
-                        onCheckedChange={(c) => setSaveAddress(!!c)}
-                      />
-                      <Label htmlFor="save-new" className="text-xs cursor-pointer">{t('save_address_future')}</Label>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </section>
-
-          {/* Payment Section */}
-          <section className="space-y-3 pt-2">
-            <h2 className="text-sm font-bold text-muted-foreground px-1 uppercase tracking-wider">{t('payment_method')}</h2>
-            <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-slate-900 rounded-2xl">
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="gap-0" dir={isRTL ? 'rtl' : 'ltr'}>
-                {[
-                  { id: 'cod', icon: Banknote, label: t('cash_on_delivery') },
-                  { id: 'visa', icon: CreditCard, label: t('credit_card') },
-                ].map((method) => (
-                  <div key={method.id} className={`flex items-center p-4 border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors ${paymentMethod === method.id ? 'bg-primary/5' : ''}`} onClick={() => setPaymentMethod(method.id)}>
-                    <RadioGroupItem value={method.id} id={method.id} className="sr-only" />
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center me-4 ${paymentMethod === method.id ? 'border-primary' : 'border-muted-foreground'}`}>
-                      {paymentMethod === method.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                    </div>
-                    <method.icon className="w-5 h-5 text-muted-foreground me-3" />
-                    <span className="font-medium text-sm flex-1 text-start">{method.label}</span>
-                  </div>
-                ))}
-              </RadioGroup>
-            </Card>
-          </section>
-
-          {/* User Phone Confirmation (Read Only View) */}
-          <section className="space-y-3 pt-2">
-            <h2 className="text-sm font-bold text-muted-foreground px-1 uppercase tracking-wider">{t('contact_info')}</h2>
-            <Card className="p-4 border-none shadow-sm bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">{t('phone_number')}</p>
-                <p className="font-mono font-medium text-lg leading-none" dir="ltr">{user?.phoneNumber}</p>
-              </div>
-              <Button variant="ghost" size="sm" className="h-8 text-xs text-primary" asChild>
-                <a href="/profile">{t('edit')}</a>
-              </Button>
-            </Card>
-          </section>
-
-          {/* Order Summary Compact */}
-          <section className="space-y-3 pt-2">
-            <h2 className="text-sm font-bold text-muted-foreground px-1 uppercase tracking-wider">{t('order_summary')}</h2>
-            <Card className="p-4 border-none shadow-sm bg-white dark:bg-slate-900 rounded-2xl">
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t('subtotal')}</span>
-                  <span>{total.toFixed(2)} {isRTL ? 'ج.م' : 'EGP'}</span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>{t('shipping')}</span>
-                  <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {t('free')}</span>
-                </div>
-                <div className="border-t border-dashed pt-3 mt-3 flex justify-between items-end">
-                  <span className="font-bold">{t('total')}</span>
-                  <span className="text-xl font-bold text-primary">{total.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{isRTL ? 'ج.م' : 'EGP'}</span></span>
-                </div>
+                <p className="text-xs text-center text-muted-foreground px-4">
+                  {t('by_placing_order_agree')}
+                </p>
               </div>
             </Card>
-          </section>
-
-        </form>
-      </div>
-
-      {/* Sticky Bottom Action - Above mobile navbar */}
-      <div className="fixed bottom-20 lg:bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-xl border-t shadow-lg z-40 safe-area-pb">
-        <div className="container max-w-3xl mx-auto">
-          <Button
-            size="lg"
-            className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20"
-            onClick={handleSubmit}
-            disabled={createOrderMutation.isPending}
-          >
-            {createOrderMutation.isPending ? t('placing_order') : t('place_order')}
-            {!createOrderMutation.isPending && <ArrowRight className={`w-5 h-5 ms-2 ${isRTL ? 'rotate-180' : ''}`} />}
-          </Button>
+          </div>
         </div>
       </div>
 
+      {/* Mobile Sticky Button & Drawer */}
+      <Drawer>
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl border-t lg:hidden z-[100] safe-area-bottom">
+          <div className="flex gap-4 items-center">
+            <DrawerTrigger asChild>
+              <div className="flex-1 cursor-pointer group">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {t('order_summary')} <ChevronUp className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
+                </div>
+                <div className="font-bold text-xl text-primary">{total.toFixed(0)} {isRTL ? 'ج.م' : 'EGP'}</div>
+              </div>
+            </DrawerTrigger>
+            <Button
+              onClick={handleSubmit}
+              disabled={createOrderMutation.isPending}
+              className="h-12 px-8 rounded-xl font-bold shadow-lg w-1/2"
+            >
+              {t('place_order')}
+            </Button>
+          </div>
+        </div>
+        <DrawerContent className="pb-24">
+          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            <h3 className="font-bold text-lg mb-4">{t('order_items')}</h3>
+            {cartItems.map((item: any) => (
+              <div key={item.id} className="flex gap-4">
+                <div className="w-16 h-16 rounded-xl bg-background overflow-hidden flex-shrink-0 border shadow-sm">
+                  <div className="w-full h-full flex items-center justify-center text-2xl">
+                    {(item.product.imageUrl?.startsWith('http') || item.product.imageUrl?.startsWith('/')) ? (
+                      <img
+                        src={item.product.imageUrl}
+                        alt={item.product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      item.product.imageUrl || "📦"
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm line-clamp-2">{item.product.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1 text-end" dir="ltr">
+                    {item.quantity} x {item.product.price}
+                  </div>
+                </div>
+                <div className="font-bold text-sm">
+                  {(item.quantity * parseFloat(item.product.price)).toFixed(0)}
+                </div>
+              </div>
+            ))}
+            <Separator className="my-4" />
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('subtotal')}</span>
+                <span className="font-medium">{total.toFixed(0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('delivery_fee')}</span>
+                <span className="font-medium text-green-600">{t('free')}</span>
+              </div>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

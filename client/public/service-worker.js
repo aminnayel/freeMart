@@ -128,15 +128,25 @@ self.addEventListener('notificationclick', function (event) {
   }
 
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(function (clientList) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+      // Ensure URL is absolute/full
+      let urlToOpen = event.notification.data.url || '/';
+      if (!urlToOpen.startsWith('http')) {
+        urlToOpen = new URL(urlToOpen, self.location.origin).href;
+      }
+
       // Check if there's already a tab open
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
-        if (client.url === '/' && 'focus' in client)
-          return client.focus();
+        // Match origin to ensure we are controlling our own app
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          return client.focus().then(focusedClient => {
+            return focusedClient.navigate(urlToOpen);
+          });
+        }
       }
       if (clients.openWindow) {
-        return clients.openWindow(event.notification.data.url || '/');
+        return clients.openWindow(urlToOpen);
       }
     })
   );

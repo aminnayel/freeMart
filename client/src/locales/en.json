@@ -213,5 +213,16 @@
     "no_items_in_order": "No items in this order",
     "easy_shopping": "Easy Shopping",
     "fast_delivery": "Fast Delivery",
-    "secure_payment": "Secure Payment"
+    "secure_payment": "Secure Payment",
+    "by_placing_order_agree": "By placing an order, you agree to our Terms of Service and Privacy Policy",
+    "receiving_order_as": "Ordering as",
+    "back_to_cart": "Back to Cart",
+    "pay_securely_online": "Pay securely online",
+    "login_desc": "Enter your phone number to continue",
+    "create_account": "Create Account",
+    "register_desc": "Get started with your free account",
+    "order_info": "Order Info",
+    "notes": "Notes",
+    "support_contact": "Support Contact",
+    "need_help": "Need Help?"
 }

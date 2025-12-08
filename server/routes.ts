@@ -106,6 +106,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       const product = await storage.createProduct(result.data);
+
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "CREATE_PRODUCT",
+        targetType: "product",
+        targetId: product.id,
+        details: `Created product ${product.name}`,
+      });
+
       res.status(201).json(product);
     } catch (error) {
       console.error("Error creating product:", error);
@@ -146,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const payload = JSON.stringify({
               title: `🎉 ${product.name} عاد للمخزون!`,
               body: `المنتج الذي كنت تنتظره أصبح متاحاً الآن. اطلبه قبل نفاد الكمية!`,
-              link: '/'
+              link: `/shop?id=${product.id}`
             });
 
             let successCount = 0;
@@ -191,6 +201,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Log the admin action
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "UPDATE_PRODUCT",
+        targetType: "product",
+        targetId: productId,
+        details: `Updated product ${product.name} (Stock: ${oldStock} -> ${newStock})`,
+      });
+
       res.json(product);
     } catch (error) {
       console.error("Error updating product:", error);
@@ -201,6 +221,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/admin/products/:id', isAuthenticated, isAdmin, async (req, res) => {
     try {
       await storage.deleteProduct(parseInt(req.params.id));
+
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "DELETE_PRODUCT",
+        targetType: "product",
+        targetId: req.params.id,
+        details: `Deleted product ID ${req.params.id}`,
+      });
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -371,6 +401,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/push/public-key', async (req, res) => {
+    res.json({ publicKey: VAPID_PUBLIC_KEY });
+  });
+
   // Admin: Get all product notification subscribers (users waiting for stock)
   app.get('/api/admin/product-notifications', isAuthenticated, isAdmin, async (req, res) => {
     try {
@@ -424,7 +458,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { search, status } = req.query;
       const orders = await storage.getAllOrders(search as string, status as string);
-      res.json(orders);
+
+      // Enrich orders with user details
+      const enrichedOrders = await Promise.all(orders.map(async (order) => {
+        const user = await storage.getUser(order.userId);
+        return {
+          ...order,
+          customerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Guest',
+        };
+      }));
+
+      res.json(enrichedOrders);
     } catch (error) {
       console.error("Error fetching admin orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
@@ -478,6 +522,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error sending push notification to customer:", pushError);
         // Don't fail the whole request if push fails
       }
+
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "UPDATE_ORDER_STATUS",
+        targetType: "order",
+        targetId: orderId,
+        details: `Updated order #${orderId} status to ${status}`,
+      });
 
       res.json(updatedOrder);
     } catch (error) {
@@ -739,6 +792,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error uploading avatar:", error);
       res.status(500).json({ message: "Failed to upload avatar" });
+    }
+  });
+
+  // Admin Logs endpoint
+  app.get('/api/admin/logs', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+      const logs = await storage.getAdminLogs(100);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching admin logs:", error);
+      res.status(500).json({ message: "Failed to fetch admin logs" });
     }
   });
 

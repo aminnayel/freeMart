@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { subscribeToPushNotifications } from "@/lib/push-notifications";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,28 @@ export default function Shop() {
       return res.json();
     },
   });
+
+  // Handle direct product links from notifications (Deep Linking)
+  // Handle direct product links from notifications (Deep Linking)
+  const params = new URLSearchParams(window.location.search);
+  const productIdFromUrl = params.get('product_id') || params.get('id');
+
+  const { data: directProduct } = useQuery<Product>({
+    queryKey: ["/api/products", productIdFromUrl],
+    queryFn: async () => {
+      if (!productIdFromUrl) return null;
+      const res = await fetch(`/api/products/${productIdFromUrl}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!productIdFromUrl
+  });
+
+  useEffect(() => {
+    if (directProduct) {
+      setSelectedProduct(directProduct);
+    }
+  }, [directProduct]);
 
   const { data: cartItems = [] } = useQuery<any[]>({
     queryKey: ["/api/cart"],
@@ -298,20 +322,7 @@ export default function Shop() {
       </div>
 
       <div className="pt-4">
-        {getCartQuantity(product.id) === 0 ? (
-          <Button
-            className="w-full h-12 text-lg rounded-xl shadow-lg hover:shadow-primary/25 transition-all"
-            onClick={() => {
-              addToCartMutation.mutate(product.id);
-              if (!isMobile) setSelectedProduct(null);
-            }}
-            disabled={!product.isAvailable || addToCartMutation.isPending}
-            data-testid="button-modal-add-to-cart"
-          >
-            <ShoppingCart className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('add_to_cart')}
-          </Button>
-        ) : !product.isAvailable || product.stock === 0 ? (
+        {!product.isAvailable || product.stock === 0 ? (
           <Button
             className="w-full h-12 text-lg rounded-xl"
             variant="secondary"
@@ -327,7 +338,12 @@ export default function Shop() {
               }
               if ("Notification" in window) {
                 if (Notification.permission === "default") {
-                  await Notification.requestPermission();
+                  const result = await Notification.requestPermission();
+                  if (result === "granted") {
+                    await subscribeToPushNotifications();
+                  }
+                } else if (Notification.permission === "granted") {
+                  await subscribeToPushNotifications();
                 } else if (Notification.permission === "denied") {
                   toast({
                     title: t('notifications_blocked'),
@@ -343,6 +359,19 @@ export default function Shop() {
           >
             <Bell className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" />
             {t('notify_me')}
+          </Button>
+        ) : getCartQuantity(product.id) === 0 ? (
+          <Button
+            className="w-full h-12 text-lg rounded-xl shadow-lg hover:shadow-primary/25 transition-all"
+            onClick={() => {
+              addToCartMutation.mutate(product.id);
+              if (!isMobile) setSelectedProduct(null);
+            }}
+            disabled={addToCartMutation.isPending}
+            data-testid="button-modal-add-to-cart"
+          >
+            <ShoppingCart className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" />
+            {t('add_to_cart')}
           </Button>
         ) : (
           <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-xl">
@@ -574,7 +603,12 @@ export default function Shop() {
                                   }
                                   if ("Notification" in window) {
                                     if (Notification.permission === "default") {
-                                      await Notification.requestPermission();
+                                      const result = await Notification.requestPermission();
+                                      if (result === "granted") {
+                                        await subscribeToPushNotifications();
+                                      }
+                                    } else if (Notification.permission === "granted") {
+                                      await subscribeToPushNotifications();
                                     } else if (Notification.permission === "denied") {
                                       toast({
                                         title: t('notifications_blocked'),
@@ -794,7 +828,12 @@ export default function Shop() {
                                 }
                                 if ("Notification" in window) {
                                   if (Notification.permission === "default") {
-                                    await Notification.requestPermission();
+                                    const result = await Notification.requestPermission();
+                                    if (result === "granted") {
+                                      await subscribeToPushNotifications();
+                                    }
+                                  } else if (Notification.permission === "granted") {
+                                    await subscribeToPushNotifications();
                                   } else if (Notification.permission === "denied") {
                                     toast({
                                       title: t('notifications_blocked'),
@@ -935,16 +974,7 @@ export default function Shop() {
 
                   {selectedProduct && (
                     <div className="pt-2">
-                      {getCartQuantity(selectedProduct.id) === 0 ? (
-                        <Button
-                          className="w-full h-14 text-lg rounded-xl shadow-lg hover:shadow-primary/25 transition-all"
-                          onClick={() => addToCartMutation.mutate(selectedProduct.id)}
-                          disabled={!selectedProduct.isAvailable || selectedProduct.stock === 0 || addToCartMutation.isPending}
-                        >
-                          <ShoppingCart className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0" />
-                          {t('add_to_cart')}
-                        </Button>
-                      ) : !selectedProduct.isAvailable || selectedProduct.stock === 0 ? (
+                      {!selectedProduct.isAvailable || selectedProduct.stock === 0 ? (
                         <Button
                           className="w-full h-14 text-lg rounded-xl"
                           variant="secondary"
@@ -960,7 +990,12 @@ export default function Shop() {
                             }
                             if ("Notification" in window) {
                               if (Notification.permission === "default") {
-                                await Notification.requestPermission();
+                                const result = await Notification.requestPermission();
+                                if (result === "granted") {
+                                  await subscribeToPushNotifications();
+                                }
+                              } else if (Notification.permission === "granted") {
+                                await subscribeToPushNotifications();
                               } else if (Notification.permission === "denied") {
                                 toast({
                                   title: t('notifications_blocked'),
@@ -976,6 +1011,15 @@ export default function Shop() {
                         >
                           <Bell className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0" />
                           {t('notify_me')}
+                        </Button>
+                      ) : getCartQuantity(selectedProduct.id) === 0 ? (
+                        <Button
+                          className="w-full h-14 text-lg rounded-xl shadow-lg hover:shadow-primary/25 transition-all"
+                          onClick={() => addToCartMutation.mutate(selectedProduct.id)}
+                          disabled={addToCartMutation.isPending}
+                        >
+                          <ShoppingCart className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0" />
+                          {t('add_to_cart')}
                         </Button>
                       ) : (
                         <div className="flex items-center gap-4 bg-muted/50 p-2 rounded-2xl">
@@ -1024,12 +1068,7 @@ export default function Shop() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedProduct(null)}
-                className="absolute top-4 right-4 rtl:right-auto rtl:left-4 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-sm transition-all"
-              >
-                <X className="w-6 h-6" />
-              </button>
+
             </div>
           </DialogContent>
         </Dialog>

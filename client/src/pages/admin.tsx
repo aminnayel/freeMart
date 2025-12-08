@@ -14,11 +14,12 @@ import { useTranslation } from "react-i18next";
 import {
     Search, Plus, Edit, Trash2, AlertTriangle, Bell, Package, Grid,
     ChevronRight, ShoppingBag, TrendingUp, Users, Settings,
-    ArrowLeft, Filter, MoreVertical, RefreshCcw
+    ArrowLeft, Filter, MoreVertical, RefreshCcw, ClipboardList
 } from "lucide-react";
 import type { Product, Category } from "@shared/schema";
 import AdminCategories from "./admin/categories";
 import AdminOrders from "./admin/orders";
+import AdminLogs from "./admin/logs";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -33,7 +34,7 @@ export default function Admin() {
     const isRTL = i18n.language === 'ar';
 
     // Mobile navigation state
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'categories' | 'orders' | 'notifications'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'categories' | 'orders' | 'notifications' | 'logs'>('dashboard');
     const [searchTerm, setSearchTerm] = useState("");
     const [isAddEditOpen, setIsAddEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -430,144 +431,191 @@ export default function Admin() {
 
     // Products View (Mobile Optimized)
     const renderProducts = () => (
-        <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-bold">{t('products')}</h1>
-                    <Button variant="ghost" size="icon" onClick={() => setShowFilters(!showFilters)}>
-                        <Filter className="w-5 h-5" />
-                    </Button>
-                </div>
-
-                {/* Search */}
-                <div className="relative">
-                    <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
-                    <Input
-                        placeholder={isRTL ? 'بحث...' : 'Search...'}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`${isRTL ? 'pr-10' : 'pl-10'} bg-muted/50 border-none h-11`}
-                    />
-                </div>
-
-                {/* Stock Filters */}
-                {showFilters && (
-                    <div className="space-y-2">
-                        {/* Stock Status Filters */}
-                        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
-                            <Button
-                                variant={stockFilter === 'all' ? "default" : "outline"}
-                                size="sm"
-                                className="rounded-full whitespace-nowrap"
-                                onClick={() => setStockFilter('all')}
-                            >
-                                {isRTL ? 'الكل' : 'All'} ({products.length})
-                            </Button>
-                            <Button
-                                variant={stockFilter === 'in_stock' ? "default" : "outline"}
-                                size="sm"
-                                className="rounded-full whitespace-nowrap bg-green-600 hover:bg-green-700"
-                                onClick={() => setStockFilter('in_stock')}
-                            >
-                                {isRTL ? 'متوفر' : 'In Stock'} ({products.filter(p => (p.stock || 0) >= 10).length})
-                            </Button>
-                            <Button
-                                variant={stockFilter === 'low_stock' ? "default" : "outline"}
-                                size="sm"
-                                className="rounded-full whitespace-nowrap"
-                                onClick={() => setStockFilter('low_stock')}
-                            >
-                                {isRTL ? 'قليل' : 'Low Stock'} ({stats.lowStock})
-                            </Button>
-                            <Button
-                                variant={stockFilter === 'out_of_stock' ? "destructive" : "outline"}
-                                size="sm"
-                                className="rounded-full whitespace-nowrap"
-                                onClick={() => setStockFilter('out_of_stock')}
-                            >
-                                {isRTL ? 'نفذ' : 'Out of Stock'} ({stats.outOfStock})
-                            </Button>
+        <div className="flex flex-col h-full space-y-4">
+            {/* Header & Controls */}
+            <div className="sticky top-0 z-10 p-4 pb-2 space-y-3 bg-gradient-to-b from-background via-background/95 to-transparent">
+                <Card className="p-4 border-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm relative overflow-visible">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h1 className="text-xl font-bold">{t('products')}</h1>
+                            <p className="text-xs text-muted-foreground">{isRTL ? 'إدارة مخزون المتجر' : 'Manage store inventory'}</p>
                         </div>
-                        {/* Category Filters */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-                            <Button
-                                variant={selectedCategoryFilter === null ? "secondary" : "ghost"}
-                                size="sm"
-                                className="rounded-full whitespace-nowrap"
-                                onClick={() => setSelectedCategoryFilter(null)}
-                            >
-                                {isRTL ? 'كل الأقسام' : 'All Categories'}
-                            </Button>
-                            {categories.map(cat => (
-                                <Button
-                                    key={cat.id}
-                                    variant={selectedCategoryFilter === cat.id ? "secondary" : "ghost"}
-                                    size="sm"
-                                    className="rounded-full whitespace-nowrap"
-                                    onClick={() => setSelectedCategoryFilter(cat.id)}
-                                >
-                                    {cat.name}
-                                </Button>
-                            ))}
-                        </div>
+                        <Button variant="outline" size="icon" onClick={() => setShowFilters(!showFilters)} className={showFilters ? "bg-primary text-primary-foreground border-primary" : ""}>
+                            <Filter className="w-4 h-4" />
+                        </Button>
                     </div>
-                )}
+
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
+                        <Input
+                            placeholder={isRTL ? 'بحث عن منتج...' : 'Search products...'}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`${isRTL ? 'pr-10' : 'pl-10'} bg-muted/50 border-none h-11 rounded-xl focus:ring-2 focus:ring-primary/20`}
+                        />
+                    </div>
+
+                    {/* Filters */}
+                    {showFilters && (
+                        <div className="pt-4 space-y-3 animate-in slide-in-from-top-2 fade-in duration-200">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground ml-1 rtl:mr-1">{isRTL ? 'حالة المخزون' : 'Stock Status'}</Label>
+                                <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
+                                    <Button
+                                        variant={stockFilter === 'all' ? "default" : "outline"}
+                                        size="sm"
+                                        className="rounded-full whitespace-nowrap h-8 text-xs shadow-sm"
+                                        onClick={() => setStockFilter('all')}
+                                    >
+                                        {isRTL ? 'الكل' : 'All'} <span className="ml-1 opacity-70">({products.length})</span>
+                                    </Button>
+                                    <Button
+                                        variant={stockFilter === 'in_stock' ? "default" : "outline"}
+                                        size="sm"
+                                        className={`rounded-full whitespace-nowrap h-8 text-xs shadow-sm ${stockFilter === 'in_stock' ? 'bg-green-600 hover:bg-green-700' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                                        onClick={() => setStockFilter('in_stock')}
+                                    >
+                                        {isRTL ? 'متوفر' : 'In Stock'}
+                                    </Button>
+                                    <Button
+                                        variant={stockFilter === 'low_stock' ? "default" : "outline"}
+                                        size="sm"
+                                        className={`rounded-full whitespace-nowrap h-8 text-xs shadow-sm ${stockFilter === 'low_stock' ? 'bg-amber-500 hover:bg-amber-600' : 'text-amber-600 border-amber-200 hover:bg-amber-50'}`}
+                                        onClick={() => setStockFilter('low_stock')}
+                                    >
+                                        {isRTL ? 'قليل' : 'Low Stock'} <span className="ml-1 opacity-70">({stats.lowStock})</span>
+                                    </Button>
+                                    <Button
+                                        variant={stockFilter === 'out_of_stock' ? "destructive" : "outline"}
+                                        size="sm"
+                                        className={`rounded-full whitespace-nowrap h-8 text-xs shadow-sm ${stockFilter === 'out_of_stock' ? '' : 'text-red-600 border-red-200 hover:bg-red-50'}`}
+                                        onClick={() => setStockFilter('out_of_stock')}
+                                    >
+                                        {isRTL ? 'نفذ' : 'Out of Stock'} <span className="ml-1 opacity-70">({stats.outOfStock})</span>
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground ml-1 rtl:mr-1">{isRTL ? 'الأقسام' : 'Categories'}</Label>
+                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none">
+                                    <Button
+                                        variant={selectedCategoryFilter === null ? "secondary" : "ghost"}
+                                        size="sm"
+                                        className="rounded-full whitespace-nowrap h-8 text-xs border"
+                                        onClick={() => setSelectedCategoryFilter(null)}
+                                    >
+                                        {isRTL ? 'الكل' : 'All'}
+                                    </Button>
+                                    {categories.map(cat => (
+                                        <Button
+                                            key={cat.id}
+                                            variant={selectedCategoryFilter === cat.id ? "secondary" : "ghost"}
+                                            size="sm"
+                                            className="rounded-full whitespace-nowrap h-8 text-xs border"
+                                            onClick={() => setSelectedCategoryFilter(cat.id)}
+                                        >
+                                            {cat.name}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </Card>
             </div>
 
             {/* Products List */}
-            <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-2">
+            <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
                 {filteredProducts.map((product) => (
                     <Card
                         key={product.id}
-                        className="p-3 border-none flex items-center gap-3 active:scale-98 transition-transform"
+                        className="p-3 border-none flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300 group active:scale-[0.99] cursor-pointer"
+                        onClick={() => handleEdit(product)}
                     >
                         {/* Product Image */}
-                        <div className="w-14 h-14 rounded-xl bg-muted overflow-hidden flex-shrink-0">
+                        <div className="w-16 h-16 rounded-2xl bg-muted/50 overflow-hidden flex-shrink-0 relative shadow-inner group-hover:scale-105 transition-transform duration-300">
                             {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
                                 <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-2xl bg-muted/50">
-                                    {product.imageUrl || <Package className="w-6 h-6 opacity-50" />}
+                                <div className="w-full h-full flex items-center justify-center text-3xl">
+                                    {product.imageUrl || <Package className="w-6 h-6 opacity-30" />}
+                                </div>
+                            )}
+                            {/* Stock Badge Overlay */}
+                            {(product.stock || 0) === 0 && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                    <Package className="w-6 h-6 text-white" />
                                 </div>
                             )}
                         </div>
 
                         {/* Product Info */}
-                        <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm truncate">{product.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="font-bold text-primary">{product.price}</span>
-                                <span className="text-xs text-muted-foreground">{isRTL ? 'جنيه' : 'EGP'}</span>
-                                {getStockBadge(product.stock || 0)}
+                        <div className="flex-1 min-w-0 py-1">
+                            <div className="flex items-start justify-between gap-2">
+                                <div>
+                                    <p className="font-bold text-sm truncate leading-tight mb-1">{product.name}</p>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span className="font-mono bg-muted/50 px-1 rounded">#{product.id}</span>
+                                        {product.englishName && <span className="truncate max-w-[100px]">{product.englishName}</span>}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                    {getStockBadge(product.stock || 0)}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-bold text-lg text-primary">{product.price}</span>
+                                    <span className="text-xs text-muted-foreground">{isRTL ? 'جنيه' : 'EGP'}</span>
+                                    <span className="text-[10px] text-muted-foreground/60 ml-1 rtl:mr-1 rtl:ml-0">/ {t(product.unit as any)}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9">
-                                    <MoreVertical className="w-4 h-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align={isRTL ? "start" : "end"}>
-                                <DropdownMenuItem onClick={() => handleEdit(product)}>
-                                    <Edit className="w-4 h-4 me-2" />
-                                    {isRTL ? 'تعديل' : 'Edit'}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDelete(product)} className="text-destructive">
-                                    <Trash2 className="w-4 h-4 me-2" />
-                                    {isRTL ? 'حذف' : 'Delete'}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/* Actions Button */}
+                        <div className="self-center" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted">
+                                        <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align={isRTL ? "start" : "end"} className="w-40 rounded-xl">
+                                    <DropdownMenuItem onClick={() => handleEdit(product)} className="gap-2 p-2.5 cursor-pointer font-medium">
+                                        <Edit className="w-4 h-4 text-blue-500" />
+                                        {isRTL ? 'تعديل' : 'Edit'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDelete(product)} className="gap-2 p-2.5 cursor-pointer text-destructive font-medium focus:text-destructive">
+                                        <Trash2 className="w-4 h-4" />
+                                        {isRTL ? 'حذف' : 'Delete'}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </Card>
                 ))}
 
                 {filteredProducts.length === 0 && (
-                    <div className="text-center py-12">
-                        <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-muted-foreground">{isRTL ? 'لا توجد منتجات' : 'No products found'}</p>
+                    <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in zoom-in-95 duration-300">
+                        <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-4">
+                            <Package className="w-10 h-10 text-muted-foreground/30" />
+                        </div>
+                        <h3 className="font-bold text-lg">{isRTL ? 'لا توجد منتجات' : 'No products found'}</h3>
+                        <p className="text-sm text-muted-foreground max-w-xs mt-1">
+                            {searchTerm
+                                ? (isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try searching with different keywords')
+                                : (isRTL ? 'إبدأ بإضافة منتجات جديدة لمتجرك' : 'Start by adding new products to your store')
+                            }
+                        </p>
+                        {!searchTerm && (
+                            <Button onClick={handleAdd} className="mt-6 rounded-xl shadow-lg shadow-primary/20">
+                                <Plus className="w-4 h-4 me-2" />
+                                {isRTL ? 'إضافة منتج' : 'Add Product'}
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
@@ -749,6 +797,16 @@ export default function Admin() {
                             <Bell className="w-5 h-5" />
                             <span className="font-medium">{isRTL ? 'الإشعارات' : 'Notifications'}</span>
                         </button>
+                        <button
+                            onClick={() => setActiveTab('logs')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'logs'
+                                ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/25'
+                                : 'hover:bg-muted/80 text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <ClipboardList className="w-5 h-5" />
+                            <span className="font-medium">{isRTL ? 'السجل' : 'Activity Log'}</span>
+                        </button>
                     </nav>
 
                     {/* Sidebar Footer */}
@@ -775,6 +833,7 @@ export default function Admin() {
                                     {activeTab === 'orders' && (isRTL ? 'الطلبات' : 'Orders')}
                                     {activeTab === 'categories' && (isRTL ? 'الأقسام' : 'Categories')}
                                     {activeTab === 'notifications' && (isRTL ? 'الإشعارات' : 'Notifications')}
+                                    {activeTab === 'logs' && (isRTL ? 'سجل العمليات' : 'Activity Log')}
                                 </h1>
                                 <p className="text-sm text-muted-foreground">
                                     {activeTab === 'dashboard' && (isRTL ? 'نظرة عامة على المتجر' : 'Overview of your store')}
@@ -782,6 +841,7 @@ export default function Admin() {
                                     {activeTab === 'orders' && (isRTL ? 'إدارة الطلبات' : 'Manage customer orders')}
                                     {activeTab === 'categories' && (isRTL ? 'إدارة الأقسام' : 'Manage categories')}
                                     {activeTab === 'notifications' && (isRTL ? 'إرسال إشعارات للعملاء' : 'Send notifications to customers')}
+                                    {activeTab === 'logs' && (isRTL ? 'جميع العمليات الإدارية' : 'All admin activities')}
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
@@ -813,6 +873,11 @@ export default function Admin() {
                             </div>
                         )}
                         {activeTab === 'notifications' && renderNotifications()}
+                        {activeTab === 'logs' && (
+                            <div className="p-4">
+                                <AdminLogs />
+                            </div>
+                        )}
                     </div>
                 </main>
             </div>
@@ -835,6 +900,11 @@ export default function Admin() {
                         </div>
                     )}
                     {activeTab === 'notifications' && renderNotifications()}
+                    {activeTab === 'logs' && (
+                        <div className="p-4 pb-24">
+                            <AdminLogs />
+                        </div>
+                    )}
                 </div>
 
                 {/* Mobile Bottom Navigation Bar */}

@@ -3,7 +3,7 @@
 
 /* Arabic font for RTL content */
 [dir="rtl"] {
-  font-family: 'Amiri', 'Arial', sans-serif;
+  font-family: 'Cairo', 'Amiri', 'Arial', sans-serif;
 }
 
 [dir="ltr"] {

@@ -281,6 +281,9 @@ export default function AdminOrders() {
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-bold">{(order as any).customerName}</span>
+                                                </div>
                                                 <div className="flex items-center gap-2">
                                                     <Phone className="w-3 h-3 text-muted-foreground" />
                                                     <span className="font-medium" dir="ltr">{order.phoneNumber}</span>

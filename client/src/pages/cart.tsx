@@ -105,7 +105,8 @@ export default function Cart() {
     0
   );
 
-  const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  /* Fixed to calculate Varieties (items.length) instead of total sum of quantities */
+  const totalItems = cartItems.length;
 
   // Empty Cart - Updated for desktop
   if (cartItems.length === 0) {
@@ -135,11 +136,11 @@ export default function Cart() {
             <div>
               <h1 className="text-xl lg:text-3xl font-bold">{t('shopping_cart')}</h1>
               <p className="text-sm text-muted-foreground hidden lg:block">
-                {totalItems} {isRTL ? 'منتج في سلتك' : 'items in your cart'}
+                {totalItems} {isRTL ? 'أصناف في سلتك' : 'items in your cart'}
               </p>
             </div>
             <Badge variant="secondary" className="lg:hidden text-sm px-3 py-1 rounded-full ms-auto">
-              {totalItems}
+              {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
             </Badge>
           </div>
         </div>
@@ -187,7 +188,7 @@ export default function Cart() {
                   <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
                     <div>
                       <div className="flex justify-between items-start gap-3">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-bold text-base lg:text-xl leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
                             {getProductName(item.product)}
                           </h3>
@@ -195,7 +196,7 @@ export default function Cart() {
                         </div>
                         <button
                           onClick={() => removeFromCartMutation.mutate(item.id)}
-                          className="p-2 lg:p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                          className="p-2 -mt-2 -me-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
@@ -313,7 +314,7 @@ export default function Cart() {
       {/* Mobile Fixed Bottom Checkout Bar */}
       {/* Mobile Fixed Bottom Checkout Bar - Compact */}
       {/* Mobile Fixed Bottom Checkout Bar - Polished */}
-      <div className="lg:hidden fixed bottom-16 left-0 right-0 p-4 bg-background/80 backdrop-blur-3xl border-t border-white/20 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-40 safe-area-pb">
+      <div className="lg:hidden fixed bottom-16 left-0 right-0 p-4 bg-background/80 backdrop-blur-3xl border-t border-white/20 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50 safe-area-pb">
         <div className="flex items-center justify-between gap-4">
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground">{t('total')}</span>

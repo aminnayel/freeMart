@@ -21,6 +21,7 @@
     "price": "السعر",
     "unit": "الوحدة",
     "availability": "الحالة",
+    "description": "الوصف",
     "in_stock": "موجود",
     "out_of_stock": "خلصان",
     "add_to_cart": "حط في العربية",
@@ -214,5 +215,16 @@
     "no_items_in_order": "الأوردر ده فاضي",
     "easy_shopping": "شروة سهلة",
     "fast_delivery": "توصيل في السريع",
-    "secure_payment": "دفع آمن"
+    "secure_payment": "دفع آمن",
+    "by_placing_order_agree": "لما بتطلب، انت كده موافق على الشروط والأحكام بتاعتنا وسياسة الخصوصية",
+    "receiving_order_as": "بتستلم الطلب بصفتك",
+    "back_to_cart": "رَجّعني للسلة",
+    "pay_securely_online": "ادفع بأمان أونلاين",
+    "login_desc": "ادخل رقم موبايلك عشان تكمل",
+    "create_account": "إنشاء حساب",
+    "register_desc": "ابدأ رحلتك معانا بحساب مجاني",
+    "order_info": "بيانات الطلب",
+    "notes": "ملاحظات",
+    "support_contact": "للتواصل مع الدعم",
+    "need_help": "محتاج مساعدة؟"
 }
