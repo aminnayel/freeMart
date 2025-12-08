@@ -6,14 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { Loader2, Phone, Lock, User, ArrowRight } from "lucide-react";
+import { Loader2, Phone, Lock, User, ShoppingBag, Sparkles } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
     phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
@@ -72,12 +72,12 @@ export default function AuthPage() {
         },
         onSuccess: (user) => {
             queryClient.setQueryData(["/api/auth/user"], user);
-            toast({ title: t('welcome_back') || "Welcome back!" });
+            toast({ title: t('welcome_back') });
             setLocation("/");
         },
         onError: (error: Error) => {
             toast({
-                title: t('login_failed') || "Login failed",
+                title: t('login_failed'),
                 description: error.message,
                 variant: "destructive",
             });
@@ -99,12 +99,12 @@ export default function AuthPage() {
         },
         onSuccess: (user) => {
             queryClient.setQueryData(["/api/auth/user"], user);
-            toast({ title: t('account_created') || "Account created successfully!" });
+            toast({ title: t('account_created') });
             setLocation("/");
         },
         onError: (error: Error) => {
             toast({
-                title: t('registration_failed') || "Registration failed",
+                title: t('registration_failed'),
                 description: error.message,
                 variant: "destructive",
             });
@@ -112,60 +112,83 @@ export default function AuthPage() {
     });
 
     return (
-        <div className="min-h-screen w-full flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=2600&auto=format&fit=crop')] bg-cover bg-center relative font-sans">
-            {/* Dark Overlay for better contrast */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+        <div
+            className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-primary/10 relative overflow-hidden"
+            dir={isRTL ? "rtl" : "ltr"}
+        >
+            {/* Decorative Background Elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/15 rounded-full blur-3xl" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
+            </div>
 
             <div className="w-full max-w-md p-4 relative z-10 animate-in fade-in zoom-in-95 duration-500">
-                <div className="bg-card/95 backdrop-blur-md border shadow-2xl rounded-3xl p-6 md:p-8">
-                    {/* App Header - Centered */}
-                    <div className="text-center space-y-2 mb-8">
+                {/* Main Card */}
+                <div className="bg-card/80 backdrop-blur-xl border border-border/50 shadow-2xl rounded-3xl p-6 md:p-8">
+                    {/* App Header */}
+                    <div className="text-center space-y-3 mb-8">
+                        {/* Logo */}
                         <div className="flex justify-center mb-4">
-                            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-2xl">✨</span>
+                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/30 p-2">
+                                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                             </div>
                         </div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                        <h1 className="text-2xl md:text-3xl font-bold text-foreground">
                             {t('app_name')}
                         </h1>
-                        <p className="text-muted-foreground font-medium">{t('app_tagline')}</p>
+                        <p className="text-muted-foreground text-sm">{t('app_tagline')}</p>
                     </div>
 
                     <Tabs defaultValue="login" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/60 p-1 h-12 rounded-xl">
-                            <TabsTrigger value="login" className="rounded-lg text-sm font-bold transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary">
+                        <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50 p-1.5 h-12 rounded-xl">
+                            <TabsTrigger
+                                value="login"
+                                className="rounded-lg text-sm font-bold transition-all data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary"
+                            >
                                 {t('login')}
                             </TabsTrigger>
-                            <TabsTrigger value="register" className="rounded-lg text-sm font-bold transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary">
+                            <TabsTrigger
+                                value="register"
+                                className="rounded-lg text-sm font-bold transition-all data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary"
+                            >
                                 {t('register')}
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="login" className="space-y-6 focus-visible:ring-0 outline-none">
-                            <div className="text-right space-y-1">
-                                <h2 className="text-xl font-bold tracking-tight">{t('welcome_back')}</h2>
-                                <p className="text-sm text-muted-foreground">{t('login_desc') || "Enter your phone number to continue"}</p>
+                        {/* Login Tab */}
+                        <TabsContent value="login" className="space-y-5 focus-visible:ring-0 outline-none">
+                            <div className="flex flex-col items-center justify-center text-center space-y-1">
+                                <h2 className="text-xl font-bold">{t('welcome_back')}</h2>
+                                <p className="text-sm text-muted-foreground">{t('login_desc')}</p>
                             </div>
+
                             <Form {...loginForm}>
                                 <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
                                     <FormField
                                         control={loginForm.control}
                                         name="phoneNumber"
                                         render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="w-full text-right block font-semibold">{t('phone_number')}</FormLabel>
+                                            <FormItem>
+                                                <FormLabel className="font-semibold">{t('phone_number')}</FormLabel>
                                                 <FormControl>
                                                     <div className="relative">
-                                                        <Phone className="absolute left-3 top-[0.9rem] h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto z-10" />
+                                                        <Phone className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
+                                                            isRTL ? "right-4" : "left-4"
+                                                        )} />
                                                         <Input
                                                             placeholder="01xxxxxxxxx"
                                                             {...field}
-                                                            className="h-12 ps-10 rtl:pe-10 rtl:ps-4 bg-muted/40 border-input/60 focus:bg-background focus:border-primary/50 transition-all rounded-xl font-medium"
-                                                            style={{ direction: 'ltr' }}
+                                                            className={cn(
+                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
+                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                            )}
+                                                            style={{ direction: 'ltr', textAlign: isRTL ? 'right' : 'left' }}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage className="text-right" />
+                                                <FormMessage />
                                             </FormItem>
                                         )}
                                     />
@@ -173,49 +196,65 @@ export default function AuthPage() {
                                         control={loginForm.control}
                                         name="password"
                                         render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="w-full text-right block font-semibold">{t('password')}</FormLabel>
+                                            <FormItem>
+                                                <FormLabel className="font-semibold">{t('password')}</FormLabel>
                                                 <FormControl>
                                                     <div className="relative">
-                                                        <Lock className="absolute left-3 top-[0.9rem] h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto z-10" />
+                                                        <Lock className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
+                                                            isRTL ? "right-4" : "left-4"
+                                                        )} />
                                                         <Input
                                                             type="password"
+                                                            placeholder="••••••••"
                                                             {...field}
-                                                            className="h-12 ps-10 rtl:pe-10 rtl:ps-4 bg-muted/40 border-input/60 focus:bg-background focus:border-primary/50 transition-all rounded-xl"
+                                                            className={cn(
+                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
+                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                            )}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage className="text-right" />
+                                                <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-                                    <Button type="submit" size="lg" className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all mt-4" disabled={loginMutation.isPending}>
-                                        {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    <Button
+                                        type="submit"
+                                        size="lg"
+                                        className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all mt-2"
+                                        disabled={loginMutation.isPending}
+                                    >
+                                        {loginMutation.isPending && <Loader2 className="h-4 w-4 animate-spin me-2" />}
                                         {t('login')}
-                                        {!loginMutation.isPending && <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" />}
                                     </Button>
                                 </form>
                             </Form>
                         </TabsContent>
 
-                        <TabsContent value="register" className="space-y-6 focus-visible:ring-0 outline-none">
-                            <div className="text-right space-y-1">
-                                <h2 className="text-xl font-bold tracking-tight">{t('create_account')}</h2>
-                                <p className="text-sm text-muted-foreground">{t('register_desc') || "Get started with your free account"}</p>
+                        {/* Register Tab */}
+                        <TabsContent value="register" className="space-y-5 focus-visible:ring-0 outline-none">
+                            <div className="flex flex-col items-center justify-center text-center space-y-1">
+                                <h2 className="text-xl font-bold">{t('create_account')}</h2>
+                                <p className="text-sm text-muted-foreground">{t('register_desc')}</p>
                             </div>
+
                             <Form {...registerForm}>
                                 <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <FormField
                                             control={registerForm.control}
                                             name="firstName"
                                             render={({ field }) => (
-                                                <FormItem className="space-y-1">
-                                                    <FormLabel className="w-full text-right block font-semibold">{t('first_name')}</FormLabel>
+                                                <FormItem>
+                                                    <FormLabel className="font-semibold">{t('first_name')}</FormLabel>
                                                     <FormControl>
-                                                        <Input {...field} className="h-12 bg-muted/40 border-input/60 focus:bg-background focus:border-primary/50 transition-all rounded-xl text-right" />
+                                                        <Input
+                                                            {...field}
+                                                            className="h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl"
+                                                        />
                                                     </FormControl>
-                                                    <FormMessage className="text-right" />
+                                                    <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
@@ -223,12 +262,15 @@ export default function AuthPage() {
                                             control={registerForm.control}
                                             name="lastName"
                                             render={({ field }) => (
-                                                <FormItem className="space-y-1">
-                                                    <FormLabel className="w-full text-right block font-semibold">{t('last_name')}</FormLabel>
+                                                <FormItem>
+                                                    <FormLabel className="font-semibold">{t('last_name')}</FormLabel>
                                                     <FormControl>
-                                                        <Input {...field} className="h-12 bg-muted/40 border-input/60 focus:bg-background focus:border-primary/50 transition-all rounded-xl text-right" />
+                                                        <Input
+                                                            {...field}
+                                                            className="h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl"
+                                                        />
                                                     </FormControl>
-                                                    <FormMessage className="text-right" />
+                                                    <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
@@ -237,20 +279,26 @@ export default function AuthPage() {
                                         control={registerForm.control}
                                         name="phoneNumber"
                                         render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="w-full text-right block font-semibold">{t('phone_number')}</FormLabel>
+                                            <FormItem>
+                                                <FormLabel className="font-semibold">{t('phone_number')}</FormLabel>
                                                 <FormControl>
                                                     <div className="relative">
-                                                        <Phone className="absolute left-3 top-[0.9rem] h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto z-10" />
+                                                        <Phone className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
+                                                            isRTL ? "right-4" : "left-4"
+                                                        )} />
                                                         <Input
                                                             placeholder="01xxxxxxxxx"
                                                             {...field}
-                                                            className="h-12 ps-10 rtl:pe-10 rtl:ps-4 bg-muted/40 border-input/60 focus:bg-background focus:border-primary/50 transition-all rounded-xl font-medium"
-                                                            style={{ direction: 'ltr' }}
+                                                            className={cn(
+                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
+                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                            )}
+                                                            style={{ direction: 'ltr', textAlign: isRTL ? 'right' : 'left' }}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage className="text-right" />
+                                                <FormMessage />
                                             </FormItem>
                                         )}
                                     />
@@ -258,31 +306,58 @@ export default function AuthPage() {
                                         control={registerForm.control}
                                         name="password"
                                         render={({ field }) => (
-                                            <FormItem className="space-y-1">
-                                                <FormLabel className="w-full text-right block font-semibold">{t('password')}</FormLabel>
+                                            <FormItem>
+                                                <FormLabel className="font-semibold">{t('password')}</FormLabel>
                                                 <FormControl>
                                                     <div className="relative">
-                                                        <Lock className="absolute left-3 top-[0.9rem] h-4 w-4 text-muted-foreground rtl:right-3 rtl:left-auto z-10" />
+                                                        <Lock className={cn(
+                                                            "absolute top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10",
+                                                            isRTL ? "right-4" : "left-4"
+                                                        )} />
                                                         <Input
                                                             type="password"
+                                                            placeholder="••••••••"
                                                             {...field}
-                                                            className="h-12 ps-10 rtl:pe-10 rtl:ps-4 bg-muted/40 border-input/60 focus:bg-background focus:border-primary/50 transition-all rounded-xl"
+                                                            className={cn(
+                                                                "h-12 bg-muted/30 border-border/50 focus:bg-background focus:border-primary/50 transition-all rounded-xl",
+                                                                isRTL ? "pr-12 pl-4" : "pl-12 pr-4"
+                                                            )}
                                                         />
                                                     </div>
                                                 </FormControl>
-                                                <FormMessage className="text-right" />
+                                                <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-                                    <Button type="submit" size="lg" className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all mt-4" disabled={registerMutation.isPending}>
-                                        {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    <Button
+                                        type="submit"
+                                        size="lg"
+                                        className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all mt-2"
+                                        disabled={registerMutation.isPending}
+                                    >
+                                        {registerMutation.isPending && <Loader2 className="h-4 w-4 animate-spin me-2" />}
                                         {t('register')}
-                                        {!registerMutation.isPending && <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" />}
                                     </Button>
                                 </form>
                             </Form>
                         </TabsContent>
                     </Tabs>
+                </div>
+
+                {/* Features */}
+                <div className="mt-6 grid grid-cols-3 gap-3">
+                    <div className="text-center p-3 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/30">
+                        <ShoppingBag className="w-5 h-5 mx-auto mb-1.5 text-primary" />
+                        <p className="text-xs font-medium text-muted-foreground">{t('easy_shopping')}</p>
+                    </div>
+                    <div className="text-center p-3 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/30">
+                        <Sparkles className="w-5 h-5 mx-auto mb-1.5 text-primary" />
+                        <p className="text-xs font-medium text-muted-foreground">{t('fast_delivery')}</p>
+                    </div>
+                    <div className="text-center p-3 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/30">
+                        <Lock className="w-5 h-5 mx-auto mb-1.5 text-primary" />
+                        <p className="text-xs font-medium text-muted-foreground">{t('secure_payment')}</p>
+                    </div>
                 </div>
             </div>
         </div>

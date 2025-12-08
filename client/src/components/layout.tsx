@@ -1,20 +1,23 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, User, Home, Menu, X, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, User, Home, Menu, X, LayoutDashboard, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const isRTL = i18n.language === 'ar';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 
   const { data: cartItems = [] } = useQuery<any[]>({
     queryKey: ["/api/cart"],
@@ -35,6 +38,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/cart", label: isRTL ? 'السلة' : 'Cart', icon: ShoppingCart, badge: cartCount },
   ];
 
+  const isShopPage = location === "/" || location === "/shop";
+
+  const handleMobileSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mobileSearchQuery.trim()) {
+      setLocation(`/?search=${encodeURIComponent(mobileSearchQuery.trim())}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Desktop Header */}
@@ -43,7 +55,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <Link href="/">
-              <a className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <a className="flex items-center gap-3 hover:opacity-80 transition-opacity shrink-0">
                 <div className="p-1 bg-white rounded-xl shadow-sm">
                   <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
                 </div>
@@ -54,6 +66,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </a>
             </Link>
+
+            {/* Mobile Search Bar - Centered */}
+            {isShopPage && (
+              <form onSubmit={handleMobileSearch} className="flex-1 max-w-sm mx-3 md:hidden">
+                <div className="relative">
+                  <Search className={cn(
+                    "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
+                    isRTL ? "right-3" : "left-3"
+                  )} />
+                  <Input
+                    className={cn(
+                      "h-10 rounded-xl bg-muted/50 border-0 text-sm",
+                      isRTL ? "pr-9 pl-3" : "pl-9 pr-3"
+                    )}
+                    placeholder={t('search_placeholder')}
+                    value={mobileSearchQuery}
+                    onChange={(e) => setMobileSearchQuery(e.target.value)}
+                  />
+                </div>
+              </form>
+            )}
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">

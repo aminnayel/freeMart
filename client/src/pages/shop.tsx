@@ -6,10 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Search, ShoppingCart, Plus, Minus, X, Bell, Sparkles } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Search, ShoppingCart, Plus, Minus, X, Bell, Sparkles, Package, Flame, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -20,6 +19,13 @@ import type { Product, Category } from "@shared/schema";
 import { translateContent } from "@/lib/translator";
 import { useAuth } from "@/hooks/useAuth";
 
+// New shop components
+import { ProductCard } from "@/components/shop/product-card";
+import { CategoryRow } from "@/components/shop/category-tile";
+import { HeroBanner, defaultBanners } from "@/components/shop/hero-banner";
+import { QuantitySelector } from "@/components/shop/quantity-selector";
+import { cn } from "@/lib/utils";
+
 export default function Shop() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -29,9 +35,18 @@ export default function Shop() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { t } = useTranslation();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const isRTL = i18n.language === 'ar';
+
+  // Sync search query with URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSearch = urlParams.get('search');
+    if (urlSearch && urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+    }
+  }, [location]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -63,7 +78,6 @@ export default function Shop() {
     queryKey: ["/api/products", selectedCategory, searchQuery],
     queryFn: async () => {
       const params = new URLSearchParams();
-      // Only filter by category if NOT searching
       if (selectedCategory && !searchQuery) params.append("categoryId", selectedCategory.toString());
       if (searchQuery) params.append("search", searchQuery);
       const res = await fetch(`/api/products${params.toString() ? "?" + params.toString() : ""}`);
@@ -72,7 +86,6 @@ export default function Shop() {
     },
   });
 
-  // Handle direct product links from notifications (Deep Linking)
   // Handle direct product links from notifications (Deep Linking)
   const params = new URLSearchParams(window.location.search);
   const productIdFromUrl = params.get('product_id') || params.get('id');
@@ -99,6 +112,7 @@ export default function Shop() {
     retry: false,
   });
 
+  // Mutations
   const addToCartMutation = useMutation({
     mutationFn: async (productId: number) => {
       const res = await fetch("/api/cart", {
@@ -116,26 +130,16 @@ export default function Shop() {
     onMutate: async (productId) => {
       await queryClient.cancelQueries({ queryKey: ["/api/cart"] });
       const previousCart = queryClient.getQueryData(["/api/cart"]);
-
       queryClient.setQueryData(["/api/cart"], (old: any[] = []) => {
         const existingItem = old.find((item) => item.productId === productId);
         if (existingItem) {
           return old.map((item) =>
-            item.productId === productId
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
+            item.productId === productId ? { ...item, quantity: item.quantity + 1 } : item
           );
         }
-        // Mock new item for optimistic update
         const product = products.find(p => p.id === productId);
-        return [...old, {
-          id: Math.random(), // Temp ID
-          productId,
-          quantity: 1,
-          product
-        }];
+        return [...old, { id: Math.random(), productId, quantity: 1, product }];
       });
-
       return { previousCart };
     },
     onSuccess: () => {
@@ -151,16 +155,10 @@ export default function Shop() {
           description: t('login_to_add_cart'),
           variant: "destructive",
         });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
+        setTimeout(() => { setLocation("/auth"); }, 500);
         return;
       }
-      toast({
-        title: t('error'),
-        description: t('error_add_cart'),
-        variant: "destructive",
-      });
+      toast({ title: t('error'), description: t('error_add_cart'), variant: "destructive" });
     },
   });
 
@@ -176,23 +174,13 @@ export default function Shop() {
     },
     onSuccess: (data) => {
       if (data.message === "Already subscribed") {
-        toast({
-          title: t('already_subscribed'),
-          description: t('already_subscribed_desc'),
-        });
+        toast({ title: t('already_subscribed'), description: t('already_subscribed_desc') });
       } else {
-        toast({
-          title: t('subscribed'),
-          description: t('subscribed_desc'),
-        });
+        toast({ title: t('subscribed'), description: t('subscribed_desc') });
       }
     },
     onError: () => {
-      toast({
-        title: t('error'),
-        description: t('error_subscribe_notifications'),
-        variant: "destructive",
-      });
+      toast({ title: t('error'), description: t('error_subscribe_notifications'), variant: "destructive" });
     },
   });
 
@@ -210,13 +198,9 @@ export default function Shop() {
     onMutate: async ({ cartItemId, quantity }) => {
       await queryClient.cancelQueries({ queryKey: ["/api/cart"] });
       const previousCart = queryClient.getQueryData(["/api/cart"]);
-
       queryClient.setQueryData(["/api/cart"], (old: any[] = []) => {
-        return old.map((item) =>
-          item.id === cartItemId ? { ...item, quantity } : item
-        );
+        return old.map((item) => item.id === cartItemId ? { ...item, quantity } : item);
       });
-
       return { previousCart };
     },
     onSuccess: () => {
@@ -226,11 +210,7 @@ export default function Shop() {
       if (context?.previousCart) {
         queryClient.setQueryData(["/api/cart"], context.previousCart);
       }
-      toast({
-        title: t('error'),
-        description: t('error_update_quantity'),
-        variant: "destructive",
-      });
+      toast({ title: t('error'), description: t('error_update_quantity'), variant: "destructive" });
     },
   });
 
@@ -246,11 +226,9 @@ export default function Shop() {
     onMutate: async (cartItemId) => {
       await queryClient.cancelQueries({ queryKey: ["/api/cart"] });
       const previousCart = queryClient.getQueryData(["/api/cart"]);
-
       queryClient.setQueryData(["/api/cart"], (old: any[] = []) => {
         return old.filter((item) => item.id !== cartItemId);
       });
-
       return { previousCart };
     },
     onSuccess: () => {
@@ -260,11 +238,7 @@ export default function Shop() {
       if (context?.previousCart) {
         queryClient.setQueryData(["/api/cart"], context.previousCart);
       }
-      toast({
-        title: t('error'),
-        description: t('error_remove_item'),
-        variant: "destructive",
-      });
+      toast({ title: t('error'), description: t('error_remove_item'), variant: "destructive" });
     },
   });
 
@@ -277,176 +251,383 @@ export default function Shop() {
     return item?.quantity || 0;
   };
 
-  const ProductDetailsContent = ({ product }: { product: Product }) => (
-    <div className="space-y-6">
-      <div className="w-full h-64 sm:h-80 relative rounded-2xl overflow-hidden shadow-lg">
-        {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
-          <img
-            src={product.imageUrl}
-            alt={getProductName(product)}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-50 text-[4rem]">
-            {product.imageUrl}
-          </div>
-        )}
-        {!product.isAvailable || product.stock === 0 ? (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-            <span className="text-white font-bold text-xl border-2 border-white px-6 py-2 rounded-full uppercase tracking-widest">
-              {t('out_of_stock')}
-            </span>
-          </div>
-        ) : null}
-      </div>
+  const handleAddToCart = (productId: number) => {
+    addToCartMutation.mutate(productId);
+  };
+
+  const handleIncrement = (productId: number) => {
+    const cartItem = getCartItem(productId);
+    if (cartItem) {
+      updateQuantityMutation.mutate({ cartItemId: cartItem.id, quantity: cartItem.quantity + 1 });
+    }
+  };
+
+  const handleDecrement = (productId: number) => {
+    const cartItem = getCartItem(productId);
+    if (cartItem) {
+      if (cartItem.quantity === 1) {
+        removeFromCartMutation.mutate(cartItem.id);
+      } else {
+        updateQuantityMutation.mutate({ cartItemId: cartItem.id, quantity: cartItem.quantity - 1 });
+      }
+    }
+  };
+
+  const handleNotifyMe = async (productId: number) => {
+    if (!user) {
+      toast({
+        title: t('login_required'),
+        description: t('login_to_notify'),
+        variant: "destructive",
+      });
+      setLocation("/auth");
+      return;
+    }
+    if ("Notification" in window) {
+      if (Notification.permission === "default") {
+        const result = await Notification.requestPermission();
+        if (result === "granted") {
+          await subscribeToPushNotifications();
+        }
+      } else if (Notification.permission === "granted") {
+        await subscribeToPushNotifications();
+      } else if (Notification.permission === "denied") {
+        toast({
+          title: t('notifications_blocked'),
+          description: t('enable_notifications_settings'),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    notifyMeMutation.mutate(productId);
+  };
+
+  // Product Details Modal Content
+  const ProductDetailsContent = ({ product }: { product: Product }) => {
+    const quantity = getCartQuantity(product.id);
+    const cartItem = getCartItem(product.id);
+    const isOutOfStock = !product.isAvailable || product.stock === 0;
+
+    return (
       <div>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-medium text-muted-foreground">{t('price')}</span>
-            <span className="text-3xl font-bold text-primary flex items-start" data-testid="text-modal-price">
-              {product.price}<span className="text-sm font-normal mt-1 ml-1">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between border-b pb-4">
-            <span className="text-lg font-medium text-muted-foreground">{t('unit')}</span>
-            <Badge variant="outline" className="text-base px-3 py-1">{t(product.unit as any)}</Badge>
+        {/* Product Image */}
+        <div className="aspect-[4/3] relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+          {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
+            <img
+              src={product.imageUrl}
+              alt={getProductName(product)}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-8xl">
+              {product.imageUrl || <Package className="w-24 h-24 text-slate-300" />}
+            </div>
+          )}
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+              <Badge variant="destructive" className="text-lg font-bold px-6 py-2 shadow-lg">
+                {t('out_of_stock')}
+              </Badge>
+            </div>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div className="p-6 space-y-4">
+          <div>
+            <h2 className={cn("text-2xl font-bold", isRTL && "text-right")}>
+              {getProductName(product)}
+            </h2>
+            {product.englishName && i18n.language === 'ar' && (
+              <p className="text-muted-foreground text-sm mt-1">{product.englishName}</p>
+            )}
           </div>
 
-          <div className="pt-2">
-            <h4 className="font-semibold mb-2">{t('description')}</h4>
-            <p className="text-muted-foreground leading-relaxed">
-              {getProductDescription(product)}
-            </p>
+          {/* Price */}
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-primary">{product.price}</span>
+            <span className="text-lg text-muted-foreground">{isRTL ? 'جنيه' : 'EGP'}</span>
+            <span className="text-sm text-muted-foreground ml-auto rtl:mr-auto rtl:ml-0">/ {t(product.unit as any)}</span>
+          </div>
+
+          {/* Stock Status */}
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              isOutOfStock ? "bg-red-500" : (product.stock || 0) < 10 ? "bg-amber-500" : "bg-green-500"
+            )} />
+            <span className="text-sm text-muted-foreground">
+              {isOutOfStock
+                ? (isRTL ? 'غير متوفر' : 'Out of Stock')
+                : (product.stock || 0) < 10
+                  ? (isRTL ? `${product.stock} فقط متبقي` : `Only ${product.stock} left`)
+                  : (isRTL ? 'متوفر' : 'In Stock')
+              }
+            </span>
+          </div>
+
+          {/* Description */}
+          {getProductDescription(product) && (
+            <div className="pt-2 border-t">
+              <h3 className={cn("font-semibold mb-2", isRTL && "text-right")}>
+                {isRTL ? 'الوصف' : 'Description'}
+              </h3>
+              <p className={cn("text-muted-foreground text-sm leading-relaxed", isRTL && "text-right")}>
+                {getProductDescription(product)}
+              </p>
+            </div>
+          )}
+
+          {/* Action Button */}
+          <div className="pt-4">
+            {isOutOfStock ? (
+              <Button
+                className="w-full h-14 text-lg font-semibold rounded-2xl gap-2 bg-amber-500 hover:bg-amber-600"
+                onClick={() => handleNotifyMe(product.id)}
+                disabled={notifyMeMutation.isPending}
+              >
+                <Bell className="w-5 h-5" />
+                {isRTL ? 'أعلمني عند التوفر' : 'Notify When Available'}
+              </Button>
+            ) : quantity === 0 ? (
+              <Button
+                className="w-full h-14 text-lg font-semibold rounded-2xl gap-2 shadow-lg hover:shadow-xl transition-all"
+                onClick={() => handleAddToCart(product.id)}
+                disabled={addToCartMutation.isPending}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {isRTL ? 'أضف للسلة' : 'Add to Cart'}
+              </Button>
+            ) : (
+              <div className="flex items-center justify-between bg-primary/10 rounded-2xl p-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-12 w-12 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm"
+                  onClick={() => handleDecrement(product.id)}
+                >
+                  <Minus className="w-5 h-5" />
+                </Button>
+                <span className="font-bold text-xl text-primary min-w-[3rem] text-center">
+                  {quantity}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-12 w-12 rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-sm"
+                  onClick={() => handleIncrement(product.id)}
+                >
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+    );
+  };
 
-      <div className="pt-4">
-        {!product.isAvailable || product.stock === 0 ? (
-          <Button
-            className="w-full h-12 text-lg rounded-xl"
-            variant="secondary"
-            onClick={async () => {
-              if (!user) {
-                toast({
-                  title: t('login_required'),
-                  description: t('login_to_notify'),
-                  variant: "destructive",
-                });
-                setLocation("/auth");
-                return;
-              }
-              if ("Notification" in window) {
-                if (Notification.permission === "default") {
-                  const result = await Notification.requestPermission();
-                  if (result === "granted") {
-                    await subscribeToPushNotifications();
-                  }
-                } else if (Notification.permission === "granted") {
-                  await subscribeToPushNotifications();
-                } else if (Notification.permission === "denied") {
-                  toast({
-                    title: t('notifications_blocked'),
-                    description: t('enable_notifications_settings'),
-                    variant: "destructive",
-                  });
-                  return;
-                }
-              }
-              notifyMeMutation.mutate(product.id);
-            }}
-            disabled={notifyMeMutation.isPending}
-          >
-            <Bell className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('notify_me')}
-          </Button>
-        ) : getCartQuantity(product.id) === 0 ? (
-          <Button
-            className="w-full h-12 text-lg rounded-xl shadow-lg hover:shadow-primary/25 transition-all"
-            onClick={() => {
-              addToCartMutation.mutate(product.id);
-              if (!isMobile) setSelectedProduct(null);
-            }}
-            disabled={addToCartMutation.isPending}
-            data-testid="button-modal-add-to-cart"
-          >
-            <ShoppingCart className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" />
-            {t('add_to_cart')}
-          </Button>
-        ) : (
-          <div className="flex items-center gap-3 bg-muted/50 p-2 rounded-xl">
-            <Button
-              variant="outline"
-              className="h-12 w-12 rounded-lg border-2"
-              onClick={() => {
-                const cartItem = getCartItem(product.id);
-                if (cartItem && getCartQuantity(product.id) > 1) {
-                  updateQuantityMutation.mutate({
-                    cartItemId: cartItem.id,
-                    quantity: getCartQuantity(product.id) - 1,
-                  });
-                } else if (cartItem) {
-                  removeFromCartMutation.mutate(cartItem.id);
-                }
-              }}
-              disabled={updateQuantityMutation.isPending || removeFromCartMutation.isPending}
-              data-testid="button-modal-decrease-quantity"
-            >
-              <Minus className="w-5 h-5" />
-            </Button>
-            <span className="flex-1 text-center font-bold text-xl" data-testid="text-modal-quantity">
-              {getCartQuantity(product.id)}
-            </span>
-            <Button
-              variant="outline"
-              className="h-12 w-12 rounded-lg border-2"
-              onClick={() => {
-                const cartItem = getCartItem(product.id);
-                if (cartItem) {
-                  updateQuantityMutation.mutate({
-                    cartItemId: cartItem.id,
-                    quantity: getCartQuantity(product.id) + 1,
-                  });
-                }
-              }}
-              disabled={updateQuantityMutation.isPending}
-              data-testid="button-modal-increase-quantity"
-            >
-              <Plus className="w-5 h-5" />
-            </Button>
+  // Section Header Component
+  const SectionHeader = ({
+    icon: Icon,
+    title,
+    subtitle,
+    action,
+  }: {
+    icon?: any;
+    title: string;
+    subtitle?: string;
+    action?: { label: string; onClick: () => void };
+  }) => (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Icon className="w-5 h-5 text-primary" />
           </div>
         )}
+        <div>
+          <h2 className="text-lg font-bold">{title}</h2>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        </div>
       </div>
+      {action && (
+        <Button variant="ghost" size="sm" className="gap-1 text-primary" onClick={action.onClick}>
+          {action.label}
+          <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+        </Button>
+      )}
     </div>
   );
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = getProductName(product).toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === null || product.categoryId === selectedCategory;
-
-    // If searching, ignore category filter
-    if (searchQuery) {
-      return matchesSearch;
-    }
-
-    return matchesCategory;
-  });
+  // Hot Deals / Featured Products Section (horizontal scroll)
+  const hotDeals = products.filter(p => p.isAvailable && p.stock && p.stock > 0).slice(0, 8);
 
   return (
-    <div className="min-h-screen bg-background page-transition">
-      {/* Desktop Layout with Sidebar */}
+    <div className="min-h-screen bg-background">
+      {/* ======================================== */}
+      {/* MOBILE LAYOUT */}
+      {/* ======================================== */}
+      <div className="lg:hidden">
+        {/* Main Content */}
+        <div className="pb-24 pt-2">
+          {searchQuery ? (
+            // Search Results View
+            <div className="p-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                {products.length} {isRTL ? 'نتيجة' : 'results'} "{searchQuery}"
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={getCartQuantity(product.id)}
+                    onAddToCart={() => handleAddToCart(product.id)}
+                    onIncrement={() => handleIncrement(product.id)}
+                    onDecrement={() => handleDecrement(product.id)}
+                    onNotifyMe={() => handleNotifyMe(product.id)}
+                    onClick={() => setSelectedProduct(product)}
+                    isRTL={isRTL}
+                    t={t}
+                  />
+                ))}
+              </div>
+              {products.length === 0 && !isProductsLoading && (
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-10 h-10 text-muted-foreground/50" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{t('no_products')}</h3>
+                  <p className="text-muted-foreground">{isRTL ? 'جرب كلمات بحث مختلفة' : 'Try different search terms'}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Home View with Sections
+            <div className="space-y-6">
+              {/* Hero Banner */}
+              <div className="px-4 pt-4">
+                <HeroBanner
+                  banners={defaultBanners.map(b => ({
+                    ...b,
+                    title: isRTL ? (b.id === 1 ? '🥬 عروض الخضروات الطازجة!' : b.id === 2 ? '🎉 عرض نهاية الأسبوع' : '📦 منتجات جديدة') : b.title,
+                    subtitle: isRTL ? (b.id === 1 ? 'خصم حتى 30% على الفواكه والخضروات' : b.id === 2 ? 'توصيل مجاني للطلبات أكثر من 200 جنيه' : 'اكتشف أحدث المنتجات') : b.subtitle,
+                    ctaText: isRTL ? 'تسوق الآن' : b.ctaText,
+                  }))}
+                  isRTL={isRTL}
+                />
+              </div>
+
+              {/* Categories Row */}
+              <div className="px-4">
+                <SectionHeader
+                  icon={Sparkles}
+                  title={isRTL ? 'الأقسام' : 'Categories'}
+                />
+                <CategoryRow
+                  categories={categories}
+                  activeId={selectedCategory}
+                  onSelect={setSelectedCategory}
+                  isRTL={isRTL}
+                />
+              </div>
+
+              {/* Hot Deals Section */}
+              {hotDeals.length > 0 && (
+                <div>
+                  <div className="px-4">
+                    <SectionHeader
+                      icon={Flame}
+                      title={isRTL ? '🔥 عروض مميزة' : '🔥 Hot Deals'}
+                      subtitle={isRTL ? 'لا تفوت هذه العروض' : "Don't miss these offers"}
+                    />
+                  </div>
+                  <div className="overflow-x-auto scrollbar-none">
+                    <div className="flex gap-3 px-4 pb-2">
+                      {hotDeals.map((product) => (
+                        <div key={product.id} className="w-[160px] flex-shrink-0">
+                          <ProductCard
+                            product={product}
+                            quantity={getCartQuantity(product.id)}
+                            onAddToCart={() => handleAddToCart(product.id)}
+                            onIncrement={() => handleIncrement(product.id)}
+                            onDecrement={() => handleDecrement(product.id)}
+                            onNotifyMe={() => handleNotifyMe(product.id)}
+                            onClick={() => setSelectedProduct(product)}
+                            isRTL={isRTL}
+                            t={t}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* All Products Grid */}
+              <div className="px-4">
+                <SectionHeader
+                  icon={Package}
+                  title={selectedCategory
+                    ? categories.find(c => c.id === selectedCategory)?.name || (isRTL ? 'المنتجات' : 'Products')
+                    : (isRTL ? 'جميع المنتجات' : 'All Products')
+                  }
+                  subtitle={`${products.length} ${isRTL ? 'منتج' : 'products'}`}
+                />
+
+                {isProductsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-muted-foreground">{t('loading_products')}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {products.map((product, index) => (
+                      <div
+                        key={product.id}
+                        className="animate-in fade-in slide-in-from-bottom-2"
+                        style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
+                      >
+                        <ProductCard
+                          product={product}
+                          quantity={getCartQuantity(product.id)}
+                          onAddToCart={() => handleAddToCart(product.id)}
+                          onIncrement={() => handleIncrement(product.id)}
+                          onDecrement={() => handleDecrement(product.id)}
+                          onNotifyMe={() => handleNotifyMe(product.id)}
+                          onClick={() => setSelectedProduct(product)}
+                          isRTL={isRTL}
+                          t={t}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ======================================== */}
+      {/* DESKTOP LAYOUT */}
+      {/* ======================================== */}
       <div className="hidden lg:flex">
         {/* Desktop Sidebar - Categories */}
-        <aside className="w-64 xl:w-72 shrink-0 border-r bg-muted/20 min-h-[calc(100vh-4rem)] sticky top-16 self-start">
+        <aside className="w-64 xl:w-72 shrink-0 border-r bg-card min-h-[calc(100vh-4rem)] sticky top-16 self-start">
           <div className="p-6">
             <h2 className="text-lg font-bold mb-4 text-primary">{t('categories')}</h2>
             <nav className="space-y-1">
               <button
                 onClick={() => setSelectedCategory(null)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${selectedCategory === null
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
+                  selectedCategory === null
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
               >
                 <Sparkles className="w-5 h-5" />
                 {t('all_categories')}
@@ -455,11 +636,14 @@ export default function Shop() {
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${selectedCategory === category.id
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
+                    selectedCategory === category.id
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
                 >
+                  <span className="text-lg">{category.imageUrl || '📦'}</span>
                   {translateContent(category.name, i18n.language)}
                 </button>
               ))}
@@ -473,9 +657,15 @@ export default function Shop() {
           <div className="sticky top-16 z-20 bg-background/95 backdrop-blur-xl border-b p-6">
             <div className="max-w-2xl">
               <div className="relative">
-                <Search className={`absolute ${i18n.language === 'ar' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground`} />
+                <Search className={cn(
+                  "absolute top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground",
+                  isRTL ? "right-4" : "left-4"
+                )} />
                 <Input
-                  className={`w-full ${i18n.language === 'ar' ? 'pr-12' : 'pl-12'} h-12 bg-muted/50 border rounded-xl text-base`}
+                  className={cn(
+                    "w-full h-12 bg-muted/50 border rounded-xl text-base",
+                    isRTL ? "pr-12" : "pl-12"
+                  )}
                   placeholder={t('search_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -483,7 +673,10 @@ export default function Shop() {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className={`absolute ${i18n.language === 'ar' ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full`}
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full",
+                      isRTL ? "left-3" : "right-3"
+                    )}
                   >
                     <X className="w-4 h-4 text-muted-foreground" />
                   </button>
@@ -501,575 +694,114 @@ export default function Shop() {
           </div>
 
           {/* Desktop Products Grid */}
-          <div className="p-6">
-            {isProductsLoading ? (
-              <div className="flex flex-col justify-center items-center py-24 space-y-4">
-                <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full"></div>
-                <p className="text-muted-foreground">{t('loading_products')}</p>
-              </div>
-            ) : products.length === 0 ? (
-              <div className="text-center py-24">
-                <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{t('no_products')}</h3>
-                <p className="text-muted-foreground">{isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try different search terms'}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                {products.map((product, index) => {
-                  const quantity = getCartQuantity(product.id);
-                  const cartItem = getCartItem(product.id);
-                  return (
-                    <Card
+          <div className="p-6 space-y-8">
+            {/* Desktop Hero Banner */}
+            {!searchQuery && (
+              <HeroBanner
+                banners={defaultBanners.map(b => ({
+                  ...b,
+                  title: isRTL ? (b.id === 1 ? '🥬 عروض الخضروات الطازجة!' : b.id === 2 ? '🎉 عرض نهاية الأسبوع' : '📦 منتجات جديدة') : b.title,
+                  subtitle: isRTL ? (b.id === 1 ? 'خصم حتى 30% على الفواكه والخضروات' : b.id === 2 ? 'توصيل مجاني للطلبات أكثر من 200 جنيه' : 'اكتشف أحدث المنتجات') : b.subtitle,
+                  ctaText: isRTL ? 'تسوق الآن' : b.ctaText,
+                }))}
+                isRTL={isRTL}
+              />
+            )}
+
+            {/* Desktop Hot Deals Section */}
+            {!searchQuery && hotDeals.length > 0 && (
+              <div>
+                <SectionHeader
+                  icon={Flame}
+                  title={isRTL ? '🔥 عروض مميزة' : '🔥 Hot Deals'}
+                  subtitle={isRTL ? 'لا تفوت هذه العروض' : "Don't miss these offers"}
+                />
+                <div className="grid grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                  {hotDeals.map((product) => (
+                    <ProductCard
                       key={product.id}
-                      className="group relative border shadow-sm hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden bg-white dark:bg-slate-950 animate-fade-in"
-                      style={{ animationDelay: `${index * 30}ms` }}
-                      data-testid={`card-product-${product.id}`}
-                    >
-                      <div className="aspect-square relative overflow-hidden bg-muted/20">
-                        {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
-                          <img
-                            src={product.imageUrl}
-                            alt={getProductName(product)}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 cursor-pointer"
-                            onClick={() => setSelectedProduct(product)}
-                          />
-                        ) : (
-                          <div
-                            className="w-full h-full flex items-center justify-center bg-gray-50 text-[6rem] transition-transform duration-500 group-hover:scale-110 cursor-pointer"
-                            onClick={() => setSelectedProduct(product)}
-                          >
-                            {product.imageUrl}
-                          </div>
-                        )}
-
-                        {/* Overlay Gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-                        {/* Stock Badge */}
-                        {!product.isAvailable || product.stock === 0 ? (
-                          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-10">
-                            <Badge variant="destructive" className="text-sm font-bold px-4 py-2 shadow-lg">
-                              {t('out_of_stock')}
-                            </Badge>
-                          </div>
-                        ) : null}
-
-                        {/* Quick Add Button */}
-                        {product.isAvailable && product.stock > 0 && quantity === 0 && (
-                          <button
-                            className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-lg flex items-center justify-center text-primary opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-primary hover:text-white z-20"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addToCartMutation.mutate(product.id);
-                            }}
-                          >
-                            <Plus className="w-6 h-6" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="p-5 space-y-3">
-                        <div onClick={() => setSelectedProduct(product)} className="cursor-pointer">
-                          <h3 className="font-semibold text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors text-left rtl:text-right min-h-[2.5rem]">
-                            {getProductName(product)}
-                          </h3>
-                          <div className="flex items-baseline gap-2 mt-2">
-                            <span className="text-2xl font-bold text-primary">
-                              {product.price}
-                            </span>
-                            <span className="text-sm text-muted-foreground">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-                            <span className="text-sm text-muted-foreground ml-auto rtl:mr-auto rtl:ml-0">/ {t(product.unit as any)}</span>
-                          </div>
-                        </div>
-
-                        {/* Desktop Actions */}
-                        <div className="pt-2">
-                          {quantity === 0 ? (
-                            !product.isAvailable || product.stock === 0 ? (
-                              <Button
-                                className="w-full h-11 rounded-xl"
-                                variant="secondary"
-                                onClick={async () => {
-                                  if (!user) {
-                                    toast({
-                                      title: t('login_required'),
-                                      description: t('login_to_notify'),
-                                      variant: "destructive",
-                                    });
-                                    setLocation("/auth");
-                                    return;
-                                  }
-                                  if ("Notification" in window) {
-                                    if (Notification.permission === "default") {
-                                      const result = await Notification.requestPermission();
-                                      if (result === "granted") {
-                                        await subscribeToPushNotifications();
-                                      }
-                                    } else if (Notification.permission === "granted") {
-                                      await subscribeToPushNotifications();
-                                    } else if (Notification.permission === "denied") {
-                                      toast({
-                                        title: t('notifications_blocked'),
-                                        description: t('enable_notifications_settings'),
-                                        variant: "destructive",
-                                      });
-                                      return;
-                                    }
-                                  }
-                                  notifyMeMutation.mutate(product.id);
-                                }}
-                                disabled={notifyMeMutation.isPending}
-                              >
-                                <Bell className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-                                {t('notify_me')}
-                              </Button>
-                            ) : (
-                              <Button
-                                className="w-full h-11 rounded-xl shadow-sm hover:shadow-lg transition-all"
-                                onClick={() => addToCartMutation.mutate(product.id)}
-                                disabled={addToCartMutation.isPending}
-                              >
-                                <ShoppingCart className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
-                                {t('add_to_cart')}
-                              </Button>
-                            )
-                          ) : (
-                            <div className="flex items-center justify-between bg-muted/50 rounded-xl p-1.5">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-9 w-9 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-                                onClick={() => {
-                                  if (cartItem && quantity > 1) {
-                                    updateQuantityMutation.mutate({
-                                      cartItemId: cartItem.id,
-                                      quantity: quantity - 1,
-                                    });
-                                  } else if (cartItem) {
-                                    removeFromCartMutation.mutate(cartItem.id);
-                                  }
-                                }}
-                                disabled={updateQuantityMutation.isPending || removeFromCartMutation.isPending}
-                              >
-                                <Minus className="w-4 h-4" />
-                              </Button>
-                              <span className="font-bold text-lg w-10 text-center">
-                                {quantity}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-9 w-9 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-                                onClick={() => {
-                                  if (cartItem) {
-                                    updateQuantityMutation.mutate({
-                                      cartItemId: cartItem.id,
-                                      quantity: quantity + 1,
-                                    });
-                                  }
-                                }}
-                                disabled={updateQuantityMutation.isPending}
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
+                      product={product}
+                      quantity={getCartQuantity(product.id)}
+                      onAddToCart={() => handleAddToCart(product.id)}
+                      onIncrement={() => handleIncrement(product.id)}
+                      onDecrement={() => handleDecrement(product.id)}
+                      onNotifyMe={() => handleNotifyMe(product.id)}
+                      onClick={() => setSelectedProduct(product)}
+                      isRTL={isRTL}
+                      t={t}
+                    />
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* All Products Section */}
+            <div>
+              <SectionHeader
+                icon={Package}
+                title={selectedCategory
+                  ? categories.find(c => c.id === selectedCategory)?.name || (isRTL ? 'المنتجات' : 'Products')
+                  : (isRTL ? 'جميع المنتجات' : 'All Products')
+                }
+                subtitle={`${products.length} ${isRTL ? 'منتج' : 'products'}`}
+              />
+
+              {isProductsLoading ? (
+                <div className="flex flex-col justify-center items-center py-24 space-y-4">
+                  <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full" />
+                  <p className="text-muted-foreground">{t('loading_products')}</p>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="text-center py-24">
+                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">{t('no_products')}</h3>
+                  <p className="text-muted-foreground">{isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try different search terms'}</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                  {products.map((product, index) => (
+                    <div
+                      key={product.id}
+                      className="animate-in fade-in slide-in-from-bottom-2"
+                      style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
+                    >
+                      <ProductCard
+                        product={product}
+                        quantity={getCartQuantity(product.id)}
+                        onAddToCart={() => handleAddToCart(product.id)}
+                        onIncrement={() => handleIncrement(product.id)}
+                        onDecrement={() => handleDecrement(product.id)}
+                        onNotifyMe={() => handleNotifyMe(product.id)}
+                        onClick={() => setSelectedProduct(product)}
+                        isRTL={isRTL}
+                        t={t}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </main>
       </div>
 
-      {/* Mobile Layout */}
-      <div className="lg:hidden pb-4">
-        {/* Mobile Sticky Search Header - Below main navbar */}
-        <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b shadow-sm">
-          <div className="container px-4 py-3">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className={`absolute ${i18n.language === 'ar' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground`} />
-              <Input
-                className={`w-full ${i18n.language === 'ar' ? 'pr-12' : 'pl-12'} h-12 bg-muted/50 border-none rounded-xl text-base`}
-                placeholder={t('search_placeholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className={`absolute ${i18n.language === 'ar' ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full`}
-                >
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Categories Pills - Mobile */}
-          {!searchQuery && (
-            <div className="overflow-x-auto hide-scrollbar">
-              <div className="flex gap-2 px-4 pb-3">
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all active:scale-95 ${selectedCategory === null
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    }`}
-                >
-                  {t('all_categories')}
-                </button>
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all active:scale-95 ${selectedCategory === category.id
-                      ? 'bg-primary text-primary-foreground shadow-md'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                      }`}
-                  >
-                    {translateContent(category.name, i18n.language)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile Products Grid */}
-        <div className="container px-4 py-4">
-          {isProductsLoading ? (
-            <div className="flex flex-col justify-center items-center py-16 space-y-3">
-              <div className="animate-spin w-10 h-10 border-3 border-primary border-t-transparent rounded-full"></div>
-              <p className="text-muted-foreground text-sm">{t('loading_products')}</p>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-14 h-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-                <Search className="w-7 h-7 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground">{t('no_products')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-              {products.map((product, index) => {
-                const quantity = getCartQuantity(product.id);
-                const cartItem = getCartItem(product.id);
-                return (
-                  <Card
-                    key={product.id}
-                    className="group relative border-none shadow-sm hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm animate-fade-in"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                    data-testid={`card-product-${product.id}`}
-                  >
-                    <div className="aspect-[4/5] relative overflow-hidden bg-muted/20">
-                      {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={getProductName(product)}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 cursor-pointer"
-                          onClick={() => setSelectedProduct(product)}
-                        />
-                      ) : (
-                        <div
-                          className="w-full h-full flex items-center justify-center bg-gray-50 text-[5rem] transition-transform duration-500 group-hover:scale-110 cursor-pointer"
-                          onClick={() => setSelectedProduct(product)}
-                        >
-                          {product.imageUrl}
-                        </div>
-                      )}
-
-                      {/* Stock Badge */}
-                      {!product.isAvailable || product.stock === 0 ? (
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-10">
-                          <Badge variant="destructive" className="text-sm font-bold px-3 py-1 shadow-lg">
-                            {t('out_of_stock')}
-                          </Badge>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="p-3 space-y-2">
-                      <div onClick={() => setSelectedProduct(product)} className="cursor-pointer">
-                        <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors text-left rtl:text-right">
-                          {getProductName(product)}
-                        </h3>
-                        <div className="flex items-baseline gap-1 mt-1">
-                          <span className="text-lg font-bold text-primary">
-                            {product.price}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-                          <span className="text-xs text-muted-foreground ml-auto rtl:mr-auto rtl:ml-0">{t(product.unit as any)}</span>
-                        </div>
-                      </div>
-
-                      {/* Mobile Actions */}
-                      <div className="pt-2">
-                        {quantity === 0 ? (
-                          !product.isAvailable || product.stock === 0 ? (
-                            <Button
-                              className="w-full h-9 text-xs rounded-lg"
-                              variant="secondary"
-                              onClick={async () => {
-                                if (!user) {
-                                  toast({
-                                    title: t('login_required'),
-                                    description: t('login_to_notify'),
-                                    variant: "destructive",
-                                  });
-                                  setLocation("/auth");
-                                  return;
-                                }
-                                if ("Notification" in window) {
-                                  if (Notification.permission === "default") {
-                                    const result = await Notification.requestPermission();
-                                    if (result === "granted") {
-                                      await subscribeToPushNotifications();
-                                    }
-                                  } else if (Notification.permission === "granted") {
-                                    await subscribeToPushNotifications();
-                                  } else if (Notification.permission === "denied") {
-                                    toast({
-                                      title: t('notifications_blocked'),
-                                      description: t('enable_notifications_settings'),
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                }
-                                notifyMeMutation.mutate(product.id);
-                              }}
-                              disabled={notifyMeMutation.isPending}
-                            >
-                              <Bell className="w-3 h-3 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
-                              {t('notify_me')}
-                            </Button>
-                          ) : (
-                            <Button
-                              className="w-full h-9 rounded-lg shadow-sm hover:shadow-md transition-all bg-primary/90 hover:bg-primary"
-                              onClick={() => addToCartMutation.mutate(product.id)}
-                              disabled={addToCartMutation.isPending}
-                            >
-                              <ShoppingCart className="w-4 h-4 mr-1.5 rtl:ml-1.5 rtl:mr-0" />
-                              {t('add')}
-                            </Button>
-                          )
-                        ) : (
-                          <div className="flex items-center justify-between bg-muted/50 rounded-lg p-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 rounded-md hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-                              onClick={() => {
-                                if (cartItem && quantity > 1) {
-                                  updateQuantityMutation.mutate({
-                                    cartItemId: cartItem.id,
-                                    quantity: quantity - 1,
-                                  });
-                                } else if (cartItem) {
-                                  removeFromCartMutation.mutate(cartItem.id);
-                                }
-                              }}
-                              disabled={updateQuantityMutation.isPending || removeFromCartMutation.isPending}
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <span className="font-semibold text-sm w-6 text-center">
-                              {quantity}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 rounded-md hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-                              onClick={() => {
-                                if (cartItem) {
-                                  updateQuantityMutation.mutate({
-                                    cartItemId: cartItem.id,
-                                    quantity: quantity + 1,
-                                  });
-                                }
-                              }}
-                              disabled={updateQuantityMutation.isPending}
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Product Details Modal/Drawer */}
+      {/* ======================================== */}
+      {/* PRODUCT DETAILS MODAL/DRAWER */}
+      {/* ======================================== */}
       {isMobile ? (
         <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-          <DrawerContent className="bg-background/95 backdrop-blur-xl border-t-0 rounded-t-[2rem]">
-            <DrawerHeader className="text-left rtl:text-right pb-0">
-              <DrawerTitle className="text-2xl font-bold text-primary">{selectedProduct && getProductName(selectedProduct)}</DrawerTitle>
-            </DrawerHeader>
-            <div className="p-4 pb-8">
+          <DrawerContent className="max-h-[90vh]">
+            <div className="overflow-y-auto p-6">
               {selectedProduct && <ProductDetailsContent product={selectedProduct} />}
             </div>
           </DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-          <DialogContent className="overflow-hidden max-w-4xl p-0 gap-0 rounded-3xl border-none shadow-2xl bg-white dark:bg-slate-950">
-            <div className="grid grid-cols-2 h-[500px]">
-              <div className="relative h-full bg-muted overflow-hidden">
-                {(selectedProduct?.imageUrl?.startsWith('http') || selectedProduct?.imageUrl?.startsWith('/')) ? (
-                  <img
-                    src={selectedProduct?.imageUrl}
-                    alt={selectedProduct ? getProductName(selectedProduct) : ""}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-[8rem]">
-                    {selectedProduct?.imageUrl}
-                  </div>
-                )}
-                {!selectedProduct?.isAvailable || selectedProduct?.stock === 0 ? (
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                    <span className="text-white font-bold text-2xl border-4 border-white px-8 py-3 rounded-full uppercase tracking-widest transform -rotate-12">
-                      {t('out_of_stock')}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-              <div className="p-8 flex flex-col h-full overflow-y-auto">
-                <DialogHeader className="mb-6 text-left rtl:text-right">
-                  <DialogTitle className="text-3xl font-bold text-primary mb-2">
-                    {selectedProduct && getProductName(selectedProduct)}
-                  </DialogTitle>
-                  <DialogDescription className="text-lg">
-                    {selectedProduct && getProductDescription(selectedProduct)}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="mt-auto space-y-6">
-                  <div className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl">
-                    <div>
-                      <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">{t('price')}</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold text-primary">{selectedProduct?.price}</span>
-                        <span className="text-muted-foreground">{i18n.language === 'ar' ? 'جنيه' : 'EGP'}</span>
-                      </div>
-                    </div>
-                    <div className="text-right rtl:text-left">
-                      <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">{t('unit')}</p>
-                      <Badge variant="secondary" className="text-base px-3">{selectedProduct && t(selectedProduct.unit as any)}</Badge>
-                    </div>
-                  </div>
-
-                  {selectedProduct && (
-                    <div className="pt-2">
-                      {!selectedProduct.isAvailable || selectedProduct.stock === 0 ? (
-                        <Button
-                          className="w-full h-14 text-lg rounded-xl"
-                          variant="secondary"
-                          onClick={async () => {
-                            if (!user) {
-                              toast({
-                                title: t('login_required'),
-                                description: t('login_to_notify'),
-                                variant: "destructive",
-                              });
-                              setLocation("/auth");
-                              return;
-                            }
-                            if ("Notification" in window) {
-                              if (Notification.permission === "default") {
-                                const result = await Notification.requestPermission();
-                                if (result === "granted") {
-                                  await subscribeToPushNotifications();
-                                }
-                              } else if (Notification.permission === "granted") {
-                                await subscribeToPushNotifications();
-                              } else if (Notification.permission === "denied") {
-                                toast({
-                                  title: t('notifications_blocked'),
-                                  description: t('enable_notifications_settings'),
-                                  variant: "destructive",
-                                });
-                                return;
-                              }
-                            }
-                            notifyMeMutation.mutate(selectedProduct.id);
-                          }}
-                          disabled={notifyMeMutation.isPending}
-                        >
-                          <Bell className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0" />
-                          {t('notify_me')}
-                        </Button>
-                      ) : getCartQuantity(selectedProduct.id) === 0 ? (
-                        <Button
-                          className="w-full h-14 text-lg rounded-xl shadow-lg hover:shadow-primary/25 transition-all"
-                          onClick={() => addToCartMutation.mutate(selectedProduct.id)}
-                          disabled={addToCartMutation.isPending}
-                        >
-                          <ShoppingCart className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0" />
-                          {t('add_to_cart')}
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-4 bg-muted/50 p-2 rounded-2xl">
-                          <Button
-                            variant="outline"
-                            className="h-14 w-14 rounded-xl border-2"
-                            onClick={() => {
-                              const cartItem = getCartItem(selectedProduct.id);
-                              if (cartItem) {
-                                if (cartItem.quantity > 1) {
-                                  updateQuantityMutation.mutate({
-                                    cartItemId: cartItem.id,
-                                    quantity: cartItem.quantity - 1,
-                                  });
-                                } else {
-                                  removeFromCartMutation.mutate(cartItem.id);
-                                }
-                              }
-                            }}
-                            disabled={updateQuantityMutation.isPending || removeFromCartMutation.isPending}
-                          >
-                            <Minus className="w-6 h-6" />
-                          </Button>
-                          <span className="flex-1 text-center font-bold text-2xl">
-                            {getCartQuantity(selectedProduct.id)}
-                          </span>
-                          <Button
-                            variant="outline"
-                            className="h-14 w-14 rounded-xl border-2"
-                            onClick={() => {
-                              const cartItem = getCartItem(selectedProduct.id);
-                              if (cartItem) {
-                                updateQuantityMutation.mutate({
-                                  cartItemId: cartItem.id,
-                                  quantity: getCartQuantity(selectedProduct.id) + 1,
-                                });
-                              }
-                            }}
-                            disabled={updateQuantityMutation.isPending}
-                          >
-                            <Plus className="w-6 h-6" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
+          <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden">
+            {selectedProduct && <ProductDetailsContent product={selectedProduct} />}
           </DialogContent>
         </Dialog>
       )}

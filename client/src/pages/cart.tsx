@@ -162,50 +162,50 @@ export default function Cart() {
             {cartItems.map((item: any, index) => (
               <Card
                 key={item.id}
-                className="p-4 lg:p-6 border-0 lg:border shadow-md lg:shadow-lg hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden"
+                className="border-0 shadow-md lg:shadow-lg hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex gap-4 lg:gap-6">
-                  {/* Product Image */}
+                <div className="flex">
+                  {/* Product Image - Full Height */}
                   <button
                     onClick={() => setSelectedProduct(item.product)}
-                    className="w-24 h-24 lg:w-36 lg:h-36 flex-shrink-0 rounded-xl lg:rounded-2xl overflow-hidden bg-gradient-to-br from-muted to-muted/50 hover:ring-4 ring-primary/20 transition-all"
+                    className="w-28 sm:w-32 lg:w-40 flex-shrink-0 overflow-hidden bg-gradient-to-br from-muted to-muted/50 hover:opacity-90 transition-all relative"
                   >
                     {(item.product.imageUrl?.startsWith('http') || item.product.imageUrl?.startsWith('/')) ? (
                       <img
                         src={item.product.imageUrl}
                         alt={getProductName(item.product)}
-                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                        className="w-full h-full object-cover min-h-[120px] lg:min-h-[140px]"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-muted/50 text-4xl lg:text-6xl">
-                        {item.product.imageUrl || <Package className="w-10 h-10 lg:w-14 lg:h-14 text-muted-foreground" />}
+                      <div className="w-full h-full flex items-center justify-center bg-muted/50 text-4xl lg:text-5xl min-h-[120px] lg:min-h-[140px]">
+                        {item.product.imageUrl || <Package className="w-10 h-10 lg:w-12 lg:h-12 text-muted-foreground" />}
                       </div>
                     )}
                   </button>
 
                   {/* Product Info */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                  <div className="flex-1 min-w-0 p-4 lg:p-5 flex flex-col justify-between">
                     <div>
-                      <div className="flex justify-between items-start gap-3">
+                      <div className="flex justify-between items-start gap-2">
                         <div className="flex-1">
-                          <h3 className="font-bold text-base lg:text-xl leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
+                          <h3 className="font-bold text-sm lg:text-lg leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
                             {getProductName(item.product)}
                           </h3>
-                          <p className="text-sm lg:text-base text-muted-foreground mt-1">{t(item.product.unit as any)}</p>
+                          <p className="text-xs lg:text-sm text-muted-foreground mt-0.5">{t(item.product.unit as any)}</p>
                         </div>
                         <button
                           onClick={() => removeFromCartMutation.mutate(item.id)}
-                          className="p-2 -mt-2 -me-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                          className="p-1.5 -mt-1 -me-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4 lg:w-5 lg:h-5" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-4 lg:mt-6">
+                    <div className="flex items-center justify-between mt-3 lg:mt-4">
                       {/* Quantity Controls */}
-                      <div className="flex items-center gap-3 bg-muted/50 rounded-xl p-1.5">
+                      <div className="flex items-center gap-2 bg-primary/10 rounded-xl p-1">
                         <button
                           onClick={() => {
                             if (item.quantity > 1) {
@@ -214,27 +214,27 @@ export default function Cart() {
                               removeFromCartMutation.mutate(item.id);
                             }
                           }}
-                          className="h-10 w-10 lg:h-12 lg:w-12 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-md hover:shadow-lg hover:bg-muted active:scale-95 transition-all font-bold text-lg"
+                          className="h-8 w-8 lg:h-10 lg:w-10 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md active:scale-95 transition-all"
                         >
-                          <Minus className="w-5 h-5" />
+                          <Minus className="w-4 h-4" />
                         </button>
-                        <span className="font-bold w-10 lg:w-12 text-center text-lg lg:text-xl">{item.quantity}</span>
+                        <span className="font-bold w-8 lg:w-10 text-center text-base lg:text-lg text-primary">{item.quantity}</span>
                         <button
                           onClick={() => updateCartMutation.mutate({ id: item.id, quantity: item.quantity + 1 })}
-                          className="h-10 w-10 lg:h-12 lg:w-12 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-md hover:shadow-lg hover:bg-muted active:scale-95 transition-all font-bold text-lg"
+                          className="h-8 w-8 lg:h-10 lg:w-10 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md active:scale-95 transition-all"
                         >
-                          <Plus className="w-5 h-5" />
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
 
                       {/* Price */}
                       <div className="text-end">
-                        <p className="font-bold text-primary text-xl lg:text-2xl">
+                        <p className="font-bold text-primary text-lg lg:text-xl">
                           {(parseFloat(item.product.price) * item.quantity).toFixed(0)}
-                          <span className="text-sm lg:text-base font-medium ms-1">{isRTL ? 'جنيه' : 'EGP'}</span>
+                          <span className="text-xs lg:text-sm font-medium ms-1">{isRTL ? 'جنيه' : 'EGP'}</span>
                         </p>
                         {item.quantity > 1 && (
-                          <p className="text-xs lg:text-sm text-muted-foreground">
+                          <p className="text-[10px] lg:text-xs text-muted-foreground">
                             {item.product.price} × {item.quantity}
                           </p>
                         )}

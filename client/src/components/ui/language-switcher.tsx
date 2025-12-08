@@ -26,13 +26,16 @@ export function LanguageSwitcher() {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => changeLanguage("en")}>
+                <DropdownMenuItem onClick={() => changeLanguage("en")} className="gap-2">
+                    <span className="text-base">🇺🇸</span>
                     English
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => changeLanguage("ar")}>
+                <DropdownMenuItem onClick={() => changeLanguage("ar")} className="gap-2">
+                    <span className="text-base">🇪🇬</span>
                     العربية
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
 }
+
