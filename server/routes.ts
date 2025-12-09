@@ -524,6 +524,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single order with items (admin)
+  app.get('/api/admin/orders/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const order = await storage.getOrderByIdAdmin(orderId);
+
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Enrich with user details and product info
+      const user = await storage.getUser(order.userId);
+      const enrichedItems = await Promise.all(order.items.map(async (item) => {
+        const product = await storage.getProductById(item.productId);
+        return {
+          ...item,
+          productName: product?.name || 'Unknown Product',
+          productEnglishName: product?.englishName || product?.name || 'Unknown Product',
+          productImage: product?.imageUrl,
+        };
+      }));
+
+      res.json({
+        ...order,
+        customerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Guest',
+        items: enrichedItems,
+      });
+    } catch (error) {
+      console.error("Error fetching order details:", error);
+      res.status(500).json({ message: "Failed to fetch order details" });
+    }
+  });
+
   // Update order status
   app.patch('/api/admin/orders/:id/status', isAuthenticated, isAdmin, async (req, res) => {
     try {

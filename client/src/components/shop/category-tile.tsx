@@ -22,55 +22,58 @@ export function CategoryTile({
     size = 'md',
     isRTL = false,
 }: CategoryTileProps) {
-    const sizeClasses = {
-        sm: "w-16 h-16",
-        md: "w-20 h-20",
-        lg: "w-24 h-24",
-    };
-
-    const iconSizes = {
-        sm: "text-2xl",
-        md: "text-3xl",
-        lg: "text-4xl",
-    };
-
-    const textSizes = {
-        sm: "text-[10px]",
-        md: "text-xs",
-        lg: "text-sm",
-    };
-
     // Get display name based on language
     const getDisplayName = () => {
         if (!isRTL) {
-            // English mode - use englishName first, then translate Arabic name
             if (category.englishName) {
                 return category.englishName;
             }
             return translateContent(category.name, 'en');
         }
-        // Arabic mode - use the original name
         return category.name;
     };
+
+    const sizeConfig = {
+        sm: {
+            container: "min-w-[72px] p-2",
+            icon: "w-12 h-12 text-2xl",
+            text: "text-[10px]",
+        },
+        md: {
+            container: "min-w-[88px] p-2.5",
+            icon: "w-14 h-14 text-3xl",
+            text: "text-xs",
+        },
+        lg: {
+            container: "min-w-[100px] p-3",
+            icon: "w-16 h-16 text-4xl",
+            text: "text-sm",
+        },
+    };
+
+    const config = sizeConfig[size];
 
     return (
         <button
             onClick={onClick}
             className={cn(
-                "flex flex-col items-center gap-1.5 rounded-2xl p-2 transition-all duration-300",
-                "hover:scale-105 active:scale-95",
+                "group flex flex-col items-center gap-2 rounded-2xl transition-all duration-300 snap-start",
+                "hover:scale-[1.02] active:scale-[0.98]",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                config.container,
                 isActive
-                    ? "bg-primary/10 border-2 border-primary shadow-sm"
-                    : "bg-white dark:bg-slate-900 border-2 border-transparent hover:border-primary/20 hover:shadow-md"
+                    ? "bg-gradient-to-br from-primary/15 to-primary/5 shadow-lg shadow-primary/10 ring-2 ring-primary/30"
+                    : "bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:bg-gradient-to-br hover:from-primary/5 hover:to-transparent"
             )}
         >
-            {/* Icon/Image Container */}
+            {/* Icon Container */}
             <div
                 className={cn(
-                    "flex items-center justify-center rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 overflow-hidden transition-transform duration-300",
-                    sizeClasses[size],
-                    isActive && "from-primary/5 to-primary/10"
+                    "flex items-center justify-center rounded-xl overflow-hidden transition-all duration-300",
+                    "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900",
+                    "group-hover:scale-105",
+                    config.icon,
+                    isActive && "from-primary/10 to-primary/5 ring-1 ring-primary/20"
                 )}
             >
                 {(category.imageUrl?.startsWith('http') || category.imageUrl?.startsWith('/')) ? (
@@ -81,7 +84,7 @@ export function CategoryTile({
                         loading="lazy"
                     />
                 ) : (
-                    <span className={cn("select-none", iconSizes[size])}>
+                    <span className="select-none transition-transform duration-300 group-hover:scale-110">
                         {category.imageUrl || "📦"}
                     </span>
                 )}
@@ -90,9 +93,11 @@ export function CategoryTile({
             {/* Category Name */}
             <span
                 className={cn(
-                    "font-medium text-center leading-tight max-w-full truncate px-1",
-                    textSizes[size],
-                    isActive ? "text-primary" : "text-foreground/80"
+                    "font-semibold text-center leading-tight max-w-full truncate px-0.5 transition-colors duration-200",
+                    config.text,
+                    isActive
+                        ? "text-primary"
+                        : "text-foreground/70 group-hover:text-foreground"
                 )}
             >
                 {getDisplayName()}
@@ -123,11 +128,10 @@ export function CategoryRow({
     size = 'md',
 }: CategoryRowProps & { size?: 'sm' | 'md' | 'lg' }) {
     return (
-        <div className="relative">
+        <div className="relative" dir={isRTL ? "rtl" : "ltr"}>
             <div
                 className={cn(
-                    "flex gap-3 overflow-x-auto pb-2 px-4 -mx-4 scrollbar-none snap-x snap-mandatory",
-                    isRTL && "flex-row-reverse"
+                    "flex gap-2 overflow-x-auto pb-2 px-4 -mx-4 scrollbar-none snap-x snap-mandatory"
                 )}
             >
                 {/* All Categories Button */}
@@ -158,12 +162,12 @@ export function CategoryRow({
 
             {/* Fade edges for scroll indication */}
             <div className={cn(
-                "absolute top-0 bottom-2 w-8 pointer-events-none",
+                "absolute top-0 bottom-2 w-6 pointer-events-none",
                 "bg-gradient-to-r from-background to-transparent",
                 isRTL ? "right-0 bg-gradient-to-l" : "left-0"
             )} />
             <div className={cn(
-                "absolute top-0 bottom-2 w-8 pointer-events-none",
+                "absolute top-0 bottom-2 w-6 pointer-events-none",
                 "bg-gradient-to-l from-background to-transparent",
                 isRTL ? "left-0 bg-gradient-to-r" : "right-0"
             )} />

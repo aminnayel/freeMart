@@ -53,6 +53,7 @@ export interface IStorage {
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   getOrdersByUser(userId: string): Promise<Order[]>;
   getOrderById(orderId: number, userId: string): Promise<(Order & { items: OrderItem[] }) | undefined>;
+  getOrderByIdAdmin(orderId: number): Promise<(Order & { items: OrderItem[] }) | undefined>;
   updateOrderStatus(orderId: number, status: string): Promise<Order | undefined>;
   getAllOrders(search?: string, status?: string): Promise<Order[]>;
 
@@ -543,6 +544,14 @@ export class MemStorage implements IStorage {
   async getOrderById(orderId: number, userId: string): Promise<(Order & { items: OrderItem[] }) | undefined> {
     const order = this.orders.get(orderId);
     if (!order || order.userId !== userId) return undefined;
+
+    const items = Array.from(this.orderItems.values()).filter(i => i.orderId === orderId);
+    return { ...order, items };
+  }
+
+  async getOrderByIdAdmin(orderId: number): Promise<(Order & { items: OrderItem[] }) | undefined> {
+    const order = this.orders.get(orderId);
+    if (!order) return undefined;
 
     const items = Array.from(this.orderItems.values()).filter(i => i.orderId === orderId);
     return { ...order, items };

@@ -36,11 +36,15 @@ import { useToast } from "@/hooks/use-toast";
 interface OrderWithItems extends Order {
     items?: {
         id: number;
+        productId: number;
         productName: string;
+        productEnglishName?: string;
+        productImage?: string;
         productPrice: string;
         quantity: number;
         subtotal: string;
     }[];
+    customerName?: string;
 }
 
 export default function AdminOrders() {
@@ -136,9 +140,23 @@ export default function AdminOrders() {
         }
     };
 
-    const viewOrderDetails = (order: Order) => {
-        setSelectedOrder(order as OrderWithItems);
-        setIsDetailsOpen(true);
+    const viewOrderDetails = async (order: Order) => {
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error('Failed to fetch order details');
+            const orderWithItems = await res.json();
+            setSelectedOrder(orderWithItems);
+            setIsDetailsOpen(true);
+        } catch (error) {
+            console.error('Error fetching order details:', error);
+            toast({
+                title: isRTL ? 'خطأ' : 'Error',
+                description: isRTL ? 'فشل في تحميل تفاصيل الطلب' : 'Failed to load order details',
+                variant: 'destructive',
+            });
+        }
     };
 
     // Open confirmation dialog before status change
@@ -404,6 +422,59 @@ export default function AdminOrders() {
                                     <div>
                                         <span className="text-muted-foreground text-sm">{isRTL ? "ملاحظات:" : "Notes:"}</span>
                                         <p className="mt-1 text-sm bg-white/50 dark:bg-black/20 p-2 rounded">{selectedOrder.notes}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Order Items */}
+                            <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-sm text-muted-foreground">{isRTL ? "المنتجات" : "Products"}</h4>
+                                    {selectedOrder.items && selectedOrder.items.length > 0 && (
+                                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                            {selectedOrder.items.reduce((acc, item) => acc + item.quantity, 0)} {isRTL ? "قطعة" : "items"}
+                                        </span>
+                                    )}
+                                </div>
+                                {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {selectedOrder.items.map((item) => (
+                                            <div key={item.id} className="flex items-center gap-3 bg-white/50 dark:bg-black/20 p-3 rounded-lg">
+                                                {/* Product Image - Handle both emoji and URL images */}
+                                                <div className="w-12 h-12 bg-gradient-to-br from-muted to-muted/50 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
+                                                    {item.productImage ? (
+                                                        (item.productImage.startsWith('http') || item.productImage.startsWith('/')) ? (
+                                                            <img
+                                                                src={item.productImage}
+                                                                alt={item.productName}
+                                                                className="w-12 h-12 object-cover rounded-lg"
+                                                            />
+                                                        ) : (
+                                                            item.productImage
+                                                        )
+                                                    ) : (
+                                                        <Package className="w-5 h-5 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium text-sm truncate">
+                                                        {isRTL ? item.productName : (item.productEnglishName || item.productName)}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground" dir="ltr">
+                                                        {item.quantity} × {item.productPrice} {isRTL ? "جنيه" : "EGP"}
+                                                    </p>
+                                                </div>
+                                                <div className="text-end">
+                                                    <span className="font-bold text-primary">{parseFloat(item.subtotal).toFixed(0)}</span>
+                                                    <span className="text-xs text-muted-foreground block">{isRTL ? "جنيه" : "EGP"}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4 text-muted-foreground text-sm">
+                                        <Package className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                        {isRTL ? "لا توجد منتجات في هذا الطلب" : "No products in this order"}
                                     </div>
                                 )}
                             </div>

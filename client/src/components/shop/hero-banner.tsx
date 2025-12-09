@@ -168,7 +168,7 @@ export function HeroBanner({
                     transform: `translateX(${getTranslateX()}%)`,
                 }}
             >
-                {banners.map((banner, index) => (
+                {banners.map((banner) => (
                     <div
                         key={banner.id}
                         className="w-full flex-shrink-0"
@@ -201,63 +201,73 @@ export function HeroBanner({
                                     ? "bg-gradient-to-r from-transparent via-black/30 to-black/60"
                                     : "bg-gradient-to-r from-black/60 via-black/30 to-transparent"
                             )} />
-                            isRTL && "text-right"
-                                    )}
-                            style={{ color: banner.textColor || 'white' }}
-                                >
-                            {banner.title}
-                        </h2>
 
-                        {banner.subtitle && (
-                            <p
+                            {/* Content - Use items-start for RTL because global dir=rtl inverts flex alignment */}
+                            <div
                                 className={cn(
-                                    "text-white/90 text-sm sm:text-base mb-4 max-w-sm drop-shadow",
-                                    isRTL && "text-right"
+                                    "absolute inset-0 flex flex-col justify-center p-6 md:p-8",
+                                    isRTL
+                                        ? "items-start text-right pe-16 ps-6 md:ps-12"
+                                        : "items-start text-left ps-6 md:ps-12 pe-16"
                                 )}
-                                style={{ color: banner.textColor || 'white' }}
                             >
-                                {banner.subtitle}
-                            </p>
-                        )}
+                                <h2
+                                    className={cn(
+                                        "text-white text-xl sm:text-2xl md:text-3xl font-bold mb-2 drop-shadow-lg max-w-md",
+                                        isRTL && "text-right"
+                                    )}
+                                    style={{ color: banner.textColor || 'white' }}
+                                >
+                                    {banner.title}
+                                </h2>
 
-                        {banner.ctaText && (
-                            <Button
-                                className="bg-white text-primary hover:bg-white/90 font-semibold rounded-xl shadow-lg"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {banner.ctaText}
-                            </Button>
-                        )}
-                    </div>
+                                {banner.subtitle && (
+                                    <p
+                                        className={cn(
+                                            "text-white/90 text-sm sm:text-base mb-4 max-w-sm drop-shadow",
+                                            isRTL && "text-right"
+                                        )}
+                                        style={{ color: banner.textColor || 'white' }}
+                                    >
+                                        {banner.subtitle}
+                                    </p>
+                                )}
+
+                                {banner.ctaText && (
+                                    <Button
+                                        className="bg-white text-primary hover:bg-white/90 font-semibold rounded-xl shadow-lg"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {banner.ctaText}
+                                    </Button>
+                                )}
+                            </div>
                         </div>
-        </div>
-    ))
-}
-            </div >
+                    </div>
+                ))}
+            </div>
 
-    {/* Dots Indicator */ }
-{
-    banners.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-            {banners.map((_, index) => (
-                <button
-                    key={index}
-                    className={cn(
-                        "w-2 h-2 rounded-full transition-all duration-300",
-                        index === activeIndex
-                            ? "bg-white w-6"
-                            : "bg-white/50 hover:bg-white/70"
-                    )}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        goToSlide(index);
-                    }}
-                />
-            ))}
+            {/* Dots Indicator */}
+            {banners.length > 1 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                    {banners.map((_, index) => (
+                        <button
+                            key={index}
+                            className={cn(
+                                "w-2 h-2 rounded-full transition-all duration-300",
+                                index === activeIndex
+                                    ? "bg-white w-6"
+                                    : "bg-white/50 hover:bg-white/70"
+                            )}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                goToSlide(index);
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
-    )
-}
-        </div >
     );
 }
 

@@ -499,7 +499,7 @@ export default function Shop() {
                       subtitle={isRTL ? 'لا تفوت هذه العروض' : "Don't miss these offers"}
                     />
                   </div>
-                  <AutoScrollArea className="px-4 pb-2" speed={0.5} intervalMs={20}>
+                  <AutoScrollArea className="px-4 pb-2" speed={0.5} intervalMs={20} direction={isRTL ? 'rtl' : 'ltr'}>
                     {hotDeals.map((product) => (
                       <div key={product.id} className="w-[160px] flex-shrink-0">
                         <ProductCard
@@ -633,7 +633,7 @@ export default function Shop() {
                 title={isRTL ? '🔥 عروض مميزة' : '🔥 Hot Deals'}
                 subtitle={isRTL ? 'لا تفوت هذه العروض' : "Don't miss these offers"}
               />
-              <AutoScrollArea className="py-2" speed={0.5} intervalMs={20} paused={!!selectedProduct}>
+              <AutoScrollArea className="py-2" speed={0.5} intervalMs={20} paused={!!selectedProduct} direction={isRTL ? 'rtl' : 'ltr'}>
                 {hotDeals.map((product) => (
                   <div key={product.id} className="w-[220px] flex-shrink-0">
                     <ProductCard
@@ -721,11 +721,11 @@ export default function Shop() {
                           <h3 className="font-bold text-lg">{categoryName}</h3>
                           <span className="text-sm text-muted-foreground">({categoryProducts.length})</span>
                         </div>
-                        <div className="flex flex-wrap gap-6">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                           {categoryProducts.map((product, index) => (
                             <div
                               key={product.id}
-                              className="w-[220px] animate-in fade-in slide-in-from-bottom-2"
+                              className="animate-in fade-in slide-in-from-bottom-2"
                               style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
                             >
                               <ProductCard
@@ -749,11 +749,11 @@ export default function Shop() {
                 })()}
               </div>
             ) : (
-              <div className="flex flex-wrap gap-6">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                 {products.map((product, index) => (
                   <div
                     key={product.id}
-                    className="w-[220px] animate-in fade-in slide-in-from-bottom-2"
+                    className="animate-in fade-in slide-in-from-bottom-2"
                     style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
                   >
                     <ProductCard

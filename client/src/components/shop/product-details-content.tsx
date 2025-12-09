@@ -80,9 +80,6 @@ export const ProductDetailsContent = ({
                     <h2 className={cn("text-2xl font-bold", isRTL && "text-right")}>
                         {getProductName(product)}
                     </h2>
-                    {product.englishName && i18n.language === 'ar' && (
-                        <p className="text-muted-foreground text-sm mt-1">{product.englishName}</p>
-                    )}
                 </div>
 
                 {/* Price */}
