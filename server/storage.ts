@@ -5,6 +5,15 @@ import {
   cartItems,
   orders,
   orderItems,
+  deliveryZones,
+  deliverySlots,
+  promoCodes,
+  promoCodeUsage,
+  wishlists,
+  reviews,
+  loyaltyTransactions,
+  pushSubscriptions,
+  adminLogs,
   type User,
   type UpsertUser,
   type Category,
@@ -19,6 +28,23 @@ import {
   type InsertOrderItem,
   type InsertProductNotification,
   type ProductNotification,
+  type DeliveryZone,
+  type InsertDeliveryZone,
+  type DeliverySlot,
+  type InsertDeliverySlot,
+  type PromoCode,
+  type InsertPromoCode,
+  type Wishlist,
+  type InsertWishlist,
+  type Review,
+  type InsertReview,
+  type LoyaltyTransaction,
+  type InsertLoyaltyTransaction,
+  type AdminLog as SchemaAdminLog,
+  type InsertAdminLog,
+  type Offer,
+  type InsertOffer,
+  offers,
 } from "@shared/schema";
 import { hashPassword } from "./password";
 
@@ -29,18 +55,23 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserProfile(userId: string, data: Partial<User>): Promise<User | undefined>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+  updateUserLoyaltyPoints(userId: string, points: number): Promise<User | undefined>;
 
   // Category operations
   getCategories(): Promise<Category[]>;
   getCategoryById(id: number): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: number): Promise<void>;
 
   // Product operations
-  getProducts(categoryId?: number, searchQuery?: string): Promise<Product[]>;
+  getProducts(categoryId?: number, searchQuery?: string, filters?: ProductFilters): Promise<Product[]>;
   getProductById(id: number): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: number): Promise<void>;
+  getLowStockProducts(threshold?: number): Promise<Product[]>;
+  getFeaturedProducts(): Promise<Product[]>;
 
   // Cart operations
   getCartItems(userId: string): Promise<(CartItem & { product: Product })[]>;
@@ -55,7 +86,50 @@ export interface IStorage {
   getOrderById(orderId: number, userId: string): Promise<(Order & { items: OrderItem[] }) | undefined>;
   getOrderByIdAdmin(orderId: number): Promise<(Order & { items: OrderItem[] }) | undefined>;
   updateOrderStatus(orderId: number, status: string): Promise<Order | undefined>;
+  updateOrderPaymentStatus(orderId: number, paymentStatus: string, paymentReference?: string): Promise<Order | undefined>;
   getAllOrders(search?: string, status?: string): Promise<Order[]>;
+  getOrderStats(): Promise<OrderStats>;
+
+  // Delivery operations
+  getDeliveryZones(): Promise<DeliveryZone[]>;
+  getDeliveryZoneById(id: number): Promise<DeliveryZone | undefined>;
+  createDeliveryZone(zone: InsertDeliveryZone): Promise<DeliveryZone>;
+  updateDeliveryZone(id: number, zone: Partial<InsertDeliveryZone>): Promise<DeliveryZone | undefined>;
+  deleteDeliveryZone(id: number): Promise<void>;
+  getDeliverySlots(date?: Date): Promise<DeliverySlot[]>;
+  getDeliverySlotById(id: number): Promise<DeliverySlot | undefined>;
+  createDeliverySlot(slot: InsertDeliverySlot): Promise<DeliverySlot>;
+  updateDeliverySlot(id: number, slot: Partial<InsertDeliverySlot>): Promise<DeliverySlot | undefined>;
+  deleteDeliverySlot(id: number): Promise<void>;
+
+  // Promo code operations
+  getPromoCodes(): Promise<PromoCode[]>;
+  getPromoCodeById(id: number): Promise<PromoCode | undefined>;
+  getPromoCodeByCode(code: string): Promise<PromoCode | undefined>;
+  createPromoCode(promo: InsertPromoCode): Promise<PromoCode>;
+  updatePromoCode(id: number, promo: Partial<InsertPromoCode>): Promise<PromoCode | undefined>;
+  deletePromoCode(id: number): Promise<void>;
+  validatePromoCode(code: string, userId: string, orderTotal: number): Promise<PromoCodeValidation>;
+  recordPromoCodeUsage(promoCodeId: number, userId: string, orderId: number, discountApplied: number): Promise<void>;
+
+  // Wishlist operations
+  getWishlist(userId: string): Promise<(Wishlist & { product: Product })[]>;
+  addToWishlist(userId: string, productId: number): Promise<Wishlist>;
+  removeFromWishlist(userId: string, productId: number): Promise<void>;
+  isInWishlist(userId: string, productId: number): Promise<boolean>;
+
+  // Review operations
+  getProductReviews(productId: number): Promise<(Review & { user: Pick<User, 'firstName' | 'lastName'> })[]>;
+  getUserReviews(userId: string): Promise<Review[]>;
+  createReview(review: InsertReview): Promise<Review>;
+  updateReview(id: number, review: Partial<InsertReview>): Promise<Review | undefined>;
+  deleteReview(id: number): Promise<void>;
+  getProductRating(productId: number): Promise<{ average: number; count: number }>;
+
+  // Loyalty operations
+  getLoyaltyTransactions(userId: string): Promise<LoyaltyTransaction[]>;
+  addLoyaltyTransaction(transaction: InsertLoyaltyTransaction): Promise<LoyaltyTransaction>;
+  getUserLoyaltyBalance(userId: string): Promise<number>;
 
   // Notification operations
   createProductNotification(notification: InsertProductNotification): Promise<ProductNotification>;
@@ -74,8 +148,60 @@ export interface IStorage {
   removePushSubscription(userId: string): Promise<void>;
 
   // Admin log operations
-  createAdminLog(log: AdminLogData): Promise<AdminLog>;
-  getAdminLogs(filters?: AdminLogFilters): Promise<AdminLog[]>;
+  createAdminLog(log: AdminLogData): Promise<AdminLogRecord>;
+  getAdminLogs(filters?: AdminLogFilters): Promise<AdminLogRecord[]>;
+
+  // Analytics operations
+  getSalesAnalytics(startDate: Date, endDate: Date): Promise<SalesAnalytics>;
+  getTopProducts(limit?: number): Promise<TopProduct[]>;
+
+  // Offer operations
+  getOffers(): Promise<Offer[]>;
+  getAllOffers(): Promise<Offer[]>;
+  getOfferById(id: number): Promise<Offer | undefined>;
+  createOffer(offer: InsertOffer): Promise<Offer>;
+  updateOffer(id: number, offer: Partial<InsertOffer>): Promise<Offer | undefined>;
+  deleteOffer(id: number): Promise<void>;
+}
+
+// Filter types
+export interface ProductFilters {
+  minPrice?: number;
+  maxPrice?: number;
+  brand?: string;
+  isAvailable?: boolean;
+  isFeatured?: boolean;
+  sortBy?: 'price_asc' | 'price_desc' | 'name_asc' | 'name_desc' | 'newest';
+}
+
+export interface PromoCodeValidation {
+  valid: boolean;
+  discount: number;
+  message: string;
+  promoCode?: PromoCode;
+}
+
+export interface OrderStats {
+  totalOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+}
+
+export interface SalesAnalytics {
+  totalSales: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  salesByDay: { date: string; sales: number; orders: number }[];
+}
+
+export interface TopProduct {
+  productId: number;
+  productName: string;
+  totalQuantity: number;
+  totalRevenue: number;
 }
 
 export interface AdminLogFilters {
@@ -108,7 +234,7 @@ export interface AdminLogData {
   details: string;
 }
 
-export interface AdminLog extends AdminLogData {
+export interface AdminLogRecord extends AdminLogData {
   id: number;
   timestamp: Date;
 }
@@ -122,7 +248,8 @@ export class MemStorage implements IStorage {
   private orderItems: Map<number, OrderItem> = new Map();
   private productNotifications: Map<number, ProductNotification> = new Map();
   private pushSubscriptions: Map<string, PushSubscriptionData> = new Map();
-  private adminLogs: Map<number, AdminLog> = new Map();
+  private adminLogs: Map<number, AdminLogRecord> = new Map();
+  private offersMap: Map<number, Offer> = new Map();
 
   private categoryIdCounter = 1;
   private productIdCounter = 1;
@@ -131,6 +258,7 @@ export class MemStorage implements IStorage {
   private orderItemIdCounter = 1;
   private notificationIdCounter = 1;
   private adminLogIdCounter = 1;
+  private offerIdCounter = 1;
 
   constructor() {
     this.seedData();
@@ -315,6 +443,85 @@ export class MemStorage implements IStorage {
       password: await hashPassword("01011111111"),
       isAdmin: true,
     });
+
+    // Seed delivery zones, slots, and promo codes
+    this.seedDeliveryAndPromos();
+  }
+
+  private seedDeliveryAndPromos() {
+    // Delivery Zones - Cairo and Giza areas
+    const zones = [
+      { name: "وسط البلد", englishName: "Downtown Cairo", deliveryFee: "25.00", minimumOrder: "100.00", estimatedMinutes: 45 },
+      { name: "مصر الجديدة", englishName: "Heliopolis", deliveryFee: "30.00", minimumOrder: "100.00", estimatedMinutes: 50 },
+      { name: "مدينة نصر", englishName: "Nasr City", deliveryFee: "30.00", minimumOrder: "100.00", estimatedMinutes: 55 },
+      { name: "المعادي", englishName: "Maadi", deliveryFee: "35.00", minimumOrder: "150.00", estimatedMinutes: 60 },
+      { name: "الزمالك", englishName: "Zamalek", deliveryFee: "25.00", minimumOrder: "100.00", estimatedMinutes: 40 },
+      { name: "المهندسين", englishName: "Mohandessin", deliveryFee: "30.00", minimumOrder: "100.00", estimatedMinutes: 50 },
+      { name: "الدقي", englishName: "Dokki", deliveryFee: "30.00", minimumOrder: "100.00", estimatedMinutes: 50 },
+      { name: "6 أكتوبر", englishName: "6th of October", deliveryFee: "50.00", minimumOrder: "200.00", estimatedMinutes: 90 },
+      { name: "الشيخ زايد", englishName: "Sheikh Zayed", deliveryFee: "50.00", minimumOrder: "200.00", estimatedMinutes: 90 },
+      { name: "القاهرة الجديدة", englishName: "New Cairo", deliveryFee: "45.00", minimumOrder: "150.00", estimatedMinutes: 75 },
+    ];
+
+    zones.forEach(z => this.createDeliveryZone(z));
+
+    // Delivery Time Slots
+    const slots = [
+      { startTime: "09:00", endTime: "12:00", maxOrders: 50, surcharge: "0" },
+      { startTime: "12:00", endTime: "15:00", maxOrders: 50, surcharge: "0" },
+      { startTime: "15:00", endTime: "18:00", maxOrders: 50, surcharge: "0" },
+      { startTime: "18:00", endTime: "21:00", maxOrders: 60, surcharge: "0" },
+      { startTime: "21:00", endTime: "23:00", maxOrders: 40, surcharge: "10.00" }, // Late night surcharge
+    ];
+
+    slots.forEach(s => this.createDeliverySlot(s));
+
+    // Sample Promo Codes
+    const promos = [
+      {
+        code: "WELCOME10",
+        description: "خصم 10% للمستخدمين الجدد",
+        discountType: "percentage" as const,
+        discountValue: "10.00",
+        minimumOrder: "100.00",
+        maximumDiscount: "50.00",
+        maxUses: 1000,
+        maxUsesPerUser: 1,
+        isActive: true,
+      },
+      {
+        code: "SAVE20",
+        description: "خصم 20 جنيه على الطلبات",
+        discountType: "fixed" as const,
+        discountValue: "20.00",
+        minimumOrder: "200.00",
+        maxUses: 500,
+        maxUsesPerUser: 2,
+        isActive: true,
+      },
+      {
+        code: "FREESHIP",
+        description: "توصيل مجاني",
+        discountType: "fixed" as const,
+        discountValue: "50.00",
+        minimumOrder: "300.00",
+        maxUsesPerUser: 3,
+        isActive: true,
+      },
+      {
+        code: "VIP25",
+        description: "خصم 25% لعملاء VIP",
+        discountType: "percentage" as const,
+        discountValue: "25.00",
+        minimumOrder: "500.00",
+        maximumDiscount: "200.00",
+        maxUses: 100,
+        maxUsesPerUser: 5,
+        isActive: true,
+      },
+    ];
+
+    promos.forEach(p => this.createPromoCode(p));
   }
 
   // User operations
@@ -345,6 +552,8 @@ export class MemStorage implements IStorage {
       city: userData.city || null,
       postalCode: userData.postalCode || null,
       phoneNumber: userData.phoneNumber,
+      isEmailVerified: userData.isEmailVerified ?? false,
+      loyaltyPoints: userData.loyaltyPoints ?? 0,
       // Set test@example.com as admin by default
       isAdmin: userData.email === "test@example.com" ? true : (userData.isAdmin ?? false),
     };
@@ -385,6 +594,8 @@ export class MemStorage implements IStorage {
       id,
       englishName: category.englishName || null,
       imageUrl: category.imageUrl || null,
+      sortOrder: category.sortOrder ?? 0,
+      isActive: category.isActive ?? true,
       createdAt: new Date(),
     };
     this.categories.set(id, newCategory);
@@ -422,9 +633,14 @@ export class MemStorage implements IStorage {
       description: product.description || null,
       englishDescription: product.englishDescription || null,
       imageUrl: product.imageUrl || null,
+      originalPrice: product.originalPrice || null,
       stock: product.stock !== undefined ? product.stock : 50,
+      lowStockThreshold: product.lowStockThreshold ?? 10,
       unit: product.unit || "piece",
+      brand: product.brand || null,
+      barcode: product.barcode || null,
       isAvailable: product.isAvailable !== undefined ? product.isAvailable : true,
+      isFeatured: product.isFeatured ?? false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -516,7 +732,20 @@ export class MemStorage implements IStorage {
       ...order,
       id,
       status: "pending",
+      subtotal: order.subtotal || order.totalAmount,
+      deliveryFee: order.deliveryFee || "0",
+      discount: order.discount || "0",
+      paymentStatus: order.paymentStatus || "pending",
+      paymentReference: order.paymentReference || null,
+      deliveryZoneId: order.deliveryZoneId || null,
+      deliverySlotId: order.deliverySlotId || null,
+      scheduledDate: order.scheduledDate || null,
+      deliveredAt: order.deliveredAt || null,
+      promoCodeId: order.promoCodeId || null,
+      pointsEarned: order.pointsEarned ?? 0,
+      pointsRedeemed: order.pointsRedeemed ?? 0,
       notes: order.notes || null,
+      adminNotes: order.adminNotes || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -663,8 +892,8 @@ export class MemStorage implements IStorage {
   }
 
   // Admin log operations
-  async createAdminLog(data: AdminLogData): Promise<AdminLog> {
-    const log: AdminLog = {
+  async createAdminLog(data: AdminLogData): Promise<AdminLogRecord> {
+    const log: AdminLogRecord = {
       id: this.adminLogIdCounter++,
       ...data,
       timestamp: new Date(),
@@ -673,7 +902,7 @@ export class MemStorage implements IStorage {
     return log;
   }
 
-  async getAdminLogs(filters: AdminLogFilters = {}): Promise<AdminLog[]> {
+  async getAdminLogs(filters: AdminLogFilters = {}): Promise<AdminLogRecord[]> {
     const { limit = 100, action, adminUserId, targetType, startDate, endDate } = filters;
 
     let logs = Array.from(this.adminLogs.values());
@@ -699,6 +928,518 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, limit);
   }
+
+  // =====================================================
+  // NEW METHODS - Stub implementations
+  // =====================================================
+
+  // User operations
+  async updateUserLoyaltyPoints(userId: string, points: number): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    user.loyaltyPoints = (user.loyaltyPoints || 0) + points;
+    user.updatedAt = new Date();
+    this.users.set(userId, user);
+    return user;
+  }
+
+  // Category operations
+  async updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined> {
+    const existing = this.categories.get(id);
+    if (!existing) return undefined;
+    const updated: Category = { ...existing, ...category };
+    this.categories.set(id, updated);
+    return updated;
+  }
+
+  async deleteCategory(id: number): Promise<void> {
+    this.categories.delete(id);
+  }
+
+  // Product operations
+  async getLowStockProducts(threshold: number = 10): Promise<Product[]> {
+    return Array.from(this.products.values()).filter(p =>
+      p.isAvailable && (p.stock || 0) <= (p.lowStockThreshold || threshold)
+    );
+  }
+
+  async getFeaturedProducts(): Promise<Product[]> {
+    return Array.from(this.products.values()).filter(p => p.isFeatured && p.isAvailable);
+  }
+
+  // Order operations
+  async updateOrderPaymentStatus(orderId: number, paymentStatus: string, paymentReference?: string): Promise<Order | undefined> {
+    const order = this.orders.get(orderId);
+    if (!order) return undefined;
+    order.paymentStatus = paymentStatus;
+    if (paymentReference) order.paymentReference = paymentReference;
+    order.updatedAt = new Date();
+    this.orders.set(orderId, order);
+    return order;
+  }
+
+  async getOrderStats(): Promise<OrderStats> {
+    const allOrders = Array.from(this.orders.values());
+    const completedOrders = allOrders.filter(o => o.status === 'completed');
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
+
+    return {
+      totalOrders: allOrders.length,
+      pendingOrders: allOrders.filter(o => o.status === 'pending').length,
+      completedOrders: completedOrders.length,
+      cancelledOrders: allOrders.filter(o => o.status === 'cancelled').length,
+      totalRevenue,
+      averageOrderValue: completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0,
+    };
+  }
+
+  // Delivery operations - using Map storage
+  private deliveryZonesMap: Map<number, DeliveryZone> = new Map();
+  private deliverySlotsMap: Map<number, DeliverySlot> = new Map();
+  private deliveryZoneIdCounter = 1;
+  private deliverySlotIdCounter = 1;
+
+  async getDeliveryZones(): Promise<DeliveryZone[]> {
+    return Array.from(this.deliveryZonesMap.values()).filter(z => z.isActive);
+  }
+
+  async getDeliveryZoneById(id: number): Promise<DeliveryZone | undefined> {
+    return this.deliveryZonesMap.get(id);
+  }
+
+  async createDeliveryZone(zone: InsertDeliveryZone): Promise<DeliveryZone> {
+    const id = this.deliveryZoneIdCounter++;
+    const newZone: DeliveryZone = {
+      ...zone,
+      id,
+      englishName: zone.englishName || null,
+      deliveryFee: zone.deliveryFee || "0",
+      minimumOrder: zone.minimumOrder || "0",
+      estimatedMinutes: zone.estimatedMinutes ?? 60,
+      isActive: zone.isActive ?? true,
+      createdAt: new Date(),
+    };
+    this.deliveryZonesMap.set(id, newZone);
+    return newZone;
+  }
+
+  async updateDeliveryZone(id: number, zone: Partial<InsertDeliveryZone>): Promise<DeliveryZone | undefined> {
+    const existing = this.deliveryZonesMap.get(id);
+    if (!existing) return undefined;
+    const updated: DeliveryZone = { ...existing, ...zone };
+    this.deliveryZonesMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteDeliveryZone(id: number): Promise<void> {
+    this.deliveryZonesMap.delete(id);
+  }
+
+  async getDeliverySlots(date?: Date): Promise<DeliverySlot[]> {
+    let slots = Array.from(this.deliverySlotsMap.values()).filter(s => s.isActive);
+    if (date) {
+      const dayOfWeek = date.getDay();
+      slots = slots.filter(s => s.dayOfWeek === null || s.dayOfWeek === dayOfWeek);
+    }
+    return slots;
+  }
+
+  async getDeliverySlotById(id: number): Promise<DeliverySlot | undefined> {
+    return this.deliverySlotsMap.get(id);
+  }
+
+  async createDeliverySlot(slot: InsertDeliverySlot): Promise<DeliverySlot> {
+    const id = this.deliverySlotIdCounter++;
+    const newSlot: DeliverySlot = {
+      ...slot,
+      id,
+      dayOfWeek: slot.dayOfWeek ?? null,
+      maxOrders: slot.maxOrders ?? 50,
+      surcharge: slot.surcharge || "0",
+      isActive: slot.isActive ?? true,
+      createdAt: new Date(),
+    };
+    this.deliverySlotsMap.set(id, newSlot);
+    return newSlot;
+  }
+
+  async updateDeliverySlot(id: number, slot: Partial<InsertDeliverySlot>): Promise<DeliverySlot | undefined> {
+    const existing = this.deliverySlotsMap.get(id);
+    if (!existing) return undefined;
+    const updated: DeliverySlot = { ...existing, ...slot };
+    this.deliverySlotsMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteDeliverySlot(id: number): Promise<void> {
+    this.deliverySlotsMap.delete(id);
+  }
+
+  // Promo code operations
+  private promoCodesMap: Map<number, PromoCode> = new Map();
+  private promoCodeUsageMap: Map<number, { promoCodeId: number; userId: string; orderId: number; discountApplied: number }> = new Map();
+  private promoCodeIdCounter = 1;
+  private promoUsageIdCounter = 1;
+
+  async getPromoCodes(): Promise<PromoCode[]> {
+    return Array.from(this.promoCodesMap.values());
+  }
+
+  async getPromoCodeById(id: number): Promise<PromoCode | undefined> {
+    return this.promoCodesMap.get(id);
+  }
+
+  async getPromoCodeByCode(code: string): Promise<PromoCode | undefined> {
+    return Array.from(this.promoCodesMap.values()).find(p => p.code.toUpperCase() === code.toUpperCase());
+  }
+
+  async createPromoCode(promo: InsertPromoCode): Promise<PromoCode> {
+    const id = this.promoCodeIdCounter++;
+    const newPromo: PromoCode = {
+      ...promo,
+      id,
+      description: promo.description || null,
+      minimumOrder: promo.minimumOrder || "0",
+      maximumDiscount: promo.maximumDiscount || null,
+      maxUses: promo.maxUses ?? null,
+      usedCount: 0,
+      maxUsesPerUser: promo.maxUsesPerUser ?? 1,
+      startsAt: promo.startsAt || null,
+      expiresAt: promo.expiresAt || null,
+      isActive: promo.isActive ?? true,
+      createdAt: new Date(),
+    };
+    this.promoCodesMap.set(id, newPromo);
+    return newPromo;
+  }
+
+  async updatePromoCode(id: number, promo: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
+    const existing = this.promoCodesMap.get(id);
+    if (!existing) return undefined;
+    const updated: PromoCode = { ...existing, ...promo };
+    this.promoCodesMap.set(id, updated);
+    return updated;
+  }
+
+  async deletePromoCode(id: number): Promise<void> {
+    this.promoCodesMap.delete(id);
+  }
+
+  async validatePromoCode(code: string, userId: string, orderTotal: number): Promise<PromoCodeValidation> {
+    const promo = await this.getPromoCodeByCode(code);
+
+    if (!promo) {
+      return { valid: false, discount: 0, message: 'Invalid promo code' };
+    }
+
+    if (!promo.isActive) {
+      return { valid: false, discount: 0, message: 'This promo code is no longer active' };
+    }
+
+    const now = new Date();
+    if (promo.startsAt && new Date(promo.startsAt) > now) {
+      return { valid: false, discount: 0, message: 'This promo code is not yet active' };
+    }
+
+    if (promo.expiresAt && new Date(promo.expiresAt) < now) {
+      return { valid: false, discount: 0, message: 'This promo code has expired' };
+    }
+
+    if (promo.maxUses && (promo.usedCount || 0) >= promo.maxUses) {
+      return { valid: false, discount: 0, message: 'This promo code has reached its usage limit' };
+    }
+
+    const minOrder = parseFloat(promo.minimumOrder || "0");
+    if (orderTotal < minOrder) {
+      return { valid: false, discount: 0, message: `Minimum order amount is ${minOrder} EGP` };
+    }
+
+    // Calculate discount
+    let discount = 0;
+    if (promo.discountType === 'percentage') {
+      discount = orderTotal * (parseFloat(promo.discountValue) / 100);
+      if (promo.maximumDiscount) {
+        discount = Math.min(discount, parseFloat(promo.maximumDiscount));
+      }
+    } else {
+      discount = parseFloat(promo.discountValue);
+    }
+
+    return { valid: true, discount, message: 'Promo code applied', promoCode: promo };
+  }
+
+  async recordPromoCodeUsage(promoCodeId: number, userId: string, orderId: number, discountApplied: number): Promise<void> {
+    const promo = this.promoCodesMap.get(promoCodeId);
+    if (promo) {
+      promo.usedCount = (promo.usedCount || 0) + 1;
+      this.promoCodesMap.set(promoCodeId, promo);
+    }
+
+    const id = this.promoUsageIdCounter++;
+    this.promoCodeUsageMap.set(id, { promoCodeId, userId, orderId, discountApplied });
+  }
+
+  // Wishlist operations
+  private wishlistsMap: Map<number, Wishlist> = new Map();
+  private wishlistIdCounter = 1;
+
+  async getWishlist(userId: string): Promise<(Wishlist & { product: Product })[]> {
+    const items = Array.from(this.wishlistsMap.values()).filter(w => w.userId === userId);
+    return items.map(item => ({
+      ...item,
+      product: this.products.get(item.productId)!,
+    })).filter(item => item.product);
+  }
+
+  async addToWishlist(userId: string, productId: number): Promise<Wishlist> {
+    // Check if already exists
+    const existing = Array.from(this.wishlistsMap.values()).find(
+      w => w.userId === userId && w.productId === productId
+    );
+    if (existing) return existing;
+
+    const id = this.wishlistIdCounter++;
+    const wishlist: Wishlist = {
+      id,
+      userId,
+      productId,
+      createdAt: new Date(),
+    };
+    this.wishlistsMap.set(id, wishlist);
+    return wishlist;
+  }
+
+  async removeFromWishlist(userId: string, productId: number): Promise<void> {
+    const item = Array.from(this.wishlistsMap.entries()).find(
+      ([, w]) => w.userId === userId && w.productId === productId
+    );
+    if (item) {
+      this.wishlistsMap.delete(item[0]);
+    }
+  }
+
+  async isInWishlist(userId: string, productId: number): Promise<boolean> {
+    return Array.from(this.wishlistsMap.values()).some(
+      w => w.userId === userId && w.productId === productId
+    );
+  }
+
+  // Review operations
+  private reviewsMap: Map<number, Review> = new Map();
+  private reviewIdCounter = 1;
+
+  async getProductReviews(productId: number): Promise<(Review & { user: Pick<User, 'firstName' | 'lastName'> })[]> {
+    const reviews = Array.from(this.reviewsMap.values())
+      .filter(r => r.productId === productId && r.isApproved);
+
+    return reviews.map(review => {
+      const user = this.users.get(review.userId);
+      return {
+        ...review,
+        user: {
+          firstName: user?.firstName || null,
+          lastName: user?.lastName || null,
+        },
+      };
+    });
+  }
+
+  async getUserReviews(userId: string): Promise<Review[]> {
+    return Array.from(this.reviewsMap.values()).filter(r => r.userId === userId);
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    const id = this.reviewIdCounter++;
+    const newReview: Review = {
+      ...review,
+      id,
+      title: review.title || null,
+      comment: review.comment || null,
+      orderId: review.orderId || null,
+      isVerifiedPurchase: review.isVerifiedPurchase ?? false,
+      isApproved: review.isApproved ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.reviewsMap.set(id, newReview);
+    return newReview;
+  }
+
+  async updateReview(id: number, review: Partial<InsertReview>): Promise<Review | undefined> {
+    const existing = this.reviewsMap.get(id);
+    if (!existing) return undefined;
+    const updated: Review = { ...existing, ...review, updatedAt: new Date() };
+    this.reviewsMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteReview(id: number): Promise<void> {
+    this.reviewsMap.delete(id);
+  }
+
+  async getProductRating(productId: number): Promise<{ average: number; count: number }> {
+    const reviews = Array.from(this.reviewsMap.values())
+      .filter(r => r.productId === productId && r.isApproved);
+
+    if (reviews.length === 0) {
+      return { average: 0, count: 0 };
+    }
+
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return {
+      average: sum / reviews.length,
+      count: reviews.length,
+    };
+  }
+
+  // Loyalty operations
+  private loyaltyTransactionsMap: Map<number, LoyaltyTransaction> = new Map();
+  private loyaltyTransactionIdCounter = 1;
+
+  async getLoyaltyTransactions(userId: string): Promise<LoyaltyTransaction[]> {
+    return Array.from(this.loyaltyTransactionsMap.values())
+      .filter(t => t.userId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async addLoyaltyTransaction(transaction: InsertLoyaltyTransaction): Promise<LoyaltyTransaction> {
+    const id = this.loyaltyTransactionIdCounter++;
+    const newTransaction: LoyaltyTransaction = {
+      ...transaction,
+      id,
+      orderId: transaction.orderId || null,
+      description: transaction.description || null,
+      createdAt: new Date(),
+    };
+    this.loyaltyTransactionsMap.set(id, newTransaction);
+
+    // Update user's loyalty points
+    await this.updateUserLoyaltyPoints(transaction.userId, transaction.points);
+
+    return newTransaction;
+  }
+
+  async getUserLoyaltyBalance(userId: string): Promise<number> {
+    const user = this.users.get(userId);
+    return user?.loyaltyPoints || 0;
+  }
+
+  // Analytics operations
+  async getSalesAnalytics(startDate: Date, endDate: Date): Promise<SalesAnalytics> {
+    const orders = Array.from(this.orders.values()).filter(o => {
+      const orderDate = new Date(o.createdAt!);
+      return orderDate >= startDate && orderDate <= endDate && o.status === 'completed';
+    });
+
+    const totalSales = orders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
+    const totalOrders = orders.length;
+
+    // Group by day
+    const salesByDay: { date: string; sales: number; orders: number }[] = [];
+    const grouped = new Map<string, { sales: number; orders: number }>();
+
+    orders.forEach(order => {
+      const dateStr = new Date(order.createdAt!).toISOString().split('T')[0];
+      const existing = grouped.get(dateStr) || { sales: 0, orders: 0 };
+      existing.sales += parseFloat(order.totalAmount);
+      existing.orders += 1;
+      grouped.set(dateStr, existing);
+    });
+
+    grouped.forEach((value, key) => {
+      salesByDay.push({ date: key, ...value });
+    });
+
+    salesByDay.sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      totalSales,
+      totalOrders,
+      averageOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
+      salesByDay,
+    };
+  }
+
+  async getTopProducts(limit: number = 10): Promise<TopProduct[]> {
+    const productStats = new Map<number, { quantity: number; revenue: number; name: string }>();
+
+    Array.from(this.orderItems.values()).forEach(item => {
+      const existing = productStats.get(item.productId) || { quantity: 0, revenue: 0, name: item.productName };
+      existing.quantity += item.quantity;
+      existing.revenue += parseFloat(item.subtotal);
+      productStats.set(item.productId, existing);
+    });
+
+    const topProducts: TopProduct[] = [];
+    productStats.forEach((stats, productId) => {
+      topProducts.push({
+        productId,
+        productName: stats.name,
+        totalQuantity: stats.quantity,
+        totalRevenue: stats.revenue,
+      });
+    });
+
+    return topProducts
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, limit);
+  }
+
+  // Offer operations
+  async getOffers(): Promise<Offer[]> {
+    return Array.from(this.offersMap.values())
+      .filter(o => o.isActive)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+
+  async getAllOffers(): Promise<Offer[]> {
+    return Array.from(this.offersMap.values())
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+
+  async getOfferById(id: number): Promise<Offer | undefined> {
+    return this.offersMap.get(id);
+  }
+
+  async createOffer(offer: InsertOffer): Promise<Offer> {
+    const id = this.offerIdCounter++;
+    const newOffer: Offer = {
+      ...offer,
+      id,
+      titleEn: offer.titleEn || null,
+      subtitle: offer.subtitle || null,
+      subtitleEn: offer.subtitleEn || null,
+      imageUrl: offer.imageUrl || null,
+      backgroundColor: offer.backgroundColor || null,
+      ctaText: offer.ctaText || "تسوق الآن",
+      ctaTextEn: offer.ctaTextEn || "Shop Now",
+      sortOrder: offer.sortOrder ?? 0,
+      isActive: offer.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.offersMap.set(id, newOffer);
+    return newOffer;
+  }
+
+  async updateOffer(id: number, offer: Partial<InsertOffer>): Promise<Offer | undefined> {
+    const existing = this.offersMap.get(id);
+    if (!existing) return undefined;
+
+    const updated: Offer = {
+      ...existing,
+      ...offer,
+      id,
+      updatedAt: new Date(),
+    };
+    this.offersMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteOffer(id: number): Promise<void> {
+    this.offersMap.delete(id);
+  }
 }
 
 export const storage = new MemStorage();
+

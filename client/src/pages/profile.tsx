@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import {
   User as UserIcon, ShoppingBag, MapPin, LogOut, Package,
   ChevronRight, LayoutDashboard, Settings, Clock, CheckCircle,
-  Mail, Phone, Home, Edit3
+  Mail, Phone, Home, Edit3, Gift
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +27,11 @@ export default function Profile() {
 
   const { data: orders = [] } = useQuery<any[]>({
     queryKey: ["/api/orders"],
+  });
+
+  // Fetch loyalty points balance
+  const { data: loyaltyBalance = { points: 0, value: 0 } } = useQuery<{ points: number; value: number }>({
+    queryKey: ["/api/loyalty/balance"],
   });
 
   const [profileData, setProfileData] = useState({
@@ -154,29 +159,40 @@ export default function Profile() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 gap-4 px-2">
+      <div className="grid grid-cols-3 gap-3 px-2">
         <Card
           className="p-4 border-none shadow-sm bg-card/50 backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
           onClick={() => setActiveSection('orders')}
         >
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="p-2.5 bg-primary/10 rounded-full text-primary">
-              <ShoppingBag className="w-6 h-6" />
+              <ShoppingBag className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{orders.length}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{isRTL ? 'طلباتي' : 'Orders'}</p>
+              <p className="text-xl font-bold text-foreground">{orders.length}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground">{isRTL ? 'طلباتي' : 'Orders'}</p>
             </div>
           </div>
         </Card>
         <Card className="p-4 border-none shadow-sm bg-card/50 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-2 text-center">
             <div className={`p-2.5 rounded-full ${pendingOrders > 0 ? 'bg-amber-100 text-amber-600' : 'bg-muted text-muted-foreground'}`}>
-              <Clock className="w-6 h-6" />
+              <Clock className="w-5 h-5" />
             </div>
             <div>
-              <p className={`text-2xl font-bold ${pendingOrders > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>{pendingOrders}</p>
-              <p className="text-xs font-semibold text-muted-foreground">{isRTL ? 'قيد الانتظار' : 'Pending'}</p>
+              <p className={`text-xl font-bold ${pendingOrders > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>{pendingOrders}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground">{isRTL ? 'معلق' : 'Pending'}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border-none shadow-sm bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="p-2.5 bg-purple-500/20 rounded-full text-purple-600">
+              <Gift className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-purple-600">{loyaltyBalance.points}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground">{isRTL ? 'نقاط' : 'Points'}</p>
             </div>
           </div>
         </Card>
@@ -283,19 +299,6 @@ export default function Profile() {
   // Mobile Orders View
   const renderOrders = () => (
     <div className="space-y-4 page-transition">
-      {/* Mobile Sticky Header for Sub-pages */}
-      <div className="lg:hidden flex items-center gap-3 mb-4">
-        <button
-          onClick={() => setActiveSection('main')}
-          className="p-2 -ms-2 hover:bg-muted/50 rounded-full active:bg-muted transition-colors"
-        >
-          <ChevronRight className={`w-6 h-6 stroke-[2.5px] ${isRTL ? '' : 'rotate-180'}`} />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">{t('order_history')}</h1>
-        </div>
-        <Badge variant="secondary" className="px-3 py-1 rounded-full">{orders.length}</Badge>
-      </div>
 
       {orders.length === 0 ? (
         <Card className="p-8 text-center border-none shadow-none bg-transparent">
@@ -348,15 +351,6 @@ export default function Profile() {
   // Mobile Profile Settings View
   const renderProfileSettings = () => (
     <div className="space-y-6 page-transition">
-      <div className="lg:hidden flex items-center gap-3 mb-4">
-        <button
-          onClick={() => setActiveSection('main')}
-          className="p-2 -ms-2 hover:bg-muted/50 rounded-full active:bg-muted transition-colors"
-        >
-          <ChevronRight className={`w-6 h-6 stroke-[2.5px] ${isRTL ? '' : 'rotate-180'}`} />
-        </button>
-        <h1 className="text-xl font-bold">{t('profile_settings')}</h1>
-      </div>
 
       <Card className="p-5 sm:p-6 border-none shadow-sm bg-card/80 backdrop-blur-sm rounded-2xl">
         <form onSubmit={handleProfileUpdate} className="space-y-5">
@@ -411,15 +405,6 @@ export default function Profile() {
   // Mobile Address View
   const renderAddress = () => (
     <div className="space-y-6 page-transition">
-      <div className="lg:hidden flex items-center gap-3 mb-4">
-        <button
-          onClick={() => setActiveSection('main')}
-          className="p-2 -ms-2 hover:bg-muted/50 rounded-full active:bg-muted transition-colors"
-        >
-          <ChevronRight className={`w-6 h-6 stroke-[2.5px] ${isRTL ? '' : 'rotate-180'}`} />
-        </button>
-        <h1 className="text-xl font-bold">{t('delivery_address')}</h1>
-      </div>
 
       <Card className="p-5 sm:p-6 border-none shadow-sm bg-card/80 backdrop-blur-sm rounded-2xl">
         <form onSubmit={handleAddressUpdate} className="space-y-5">
@@ -524,7 +509,7 @@ export default function Profile() {
                     <button
                       onClick={() => setActiveSection('orders')}
                       className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${activeSection === 'orders'
-                        ? 'bg-primary text-primary-foreground shadow-lg'
+                        ? 'bg-primary/10 text-primary font-bold'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                     >
@@ -538,7 +523,7 @@ export default function Profile() {
                     <button
                       onClick={() => setActiveSection('profile')}
                       className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${activeSection === 'profile'
-                        ? 'bg-primary text-primary-foreground shadow-lg'
+                        ? 'bg-primary/10 text-primary font-bold'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                     >
@@ -549,7 +534,7 @@ export default function Profile() {
                     <button
                       onClick={() => setActiveSection('address')}
                       className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${activeSection === 'address'
-                        ? 'bg-primary text-primary-foreground shadow-lg'
+                        ? 'bg-primary/10 text-primary font-bold'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                     >
@@ -780,7 +765,7 @@ export default function Profile() {
       <div className="lg:hidden">
         {/* Mobile Header */}
         {/* Mobile Sticky Header */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-xl border-b px-4 py-3 shadow-sm transition-all duration-200">
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-xl border-b px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
             {activeSection !== 'main' && (
               <button

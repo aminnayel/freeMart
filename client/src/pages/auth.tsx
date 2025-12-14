@@ -34,8 +34,12 @@ export default function AuthPage() {
     const { t, i18n } = useTranslation();
     const isRTL = i18n.language === 'ar';
 
+    // Get redirect destination from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectTo = urlParams.get('redirect') || '/';
+
     if (user) {
-        setLocation("/");
+        setLocation(redirectTo);
         return null;
     }
 
@@ -73,7 +77,7 @@ export default function AuthPage() {
         onSuccess: (user) => {
             queryClient.setQueryData(["/api/auth/user"], user);
             toast({ title: t('welcome_back') });
-            setLocation("/");
+            setLocation(redirectTo);
         },
         onError: (error: Error) => {
             toast({
@@ -100,7 +104,7 @@ export default function AuthPage() {
         onSuccess: (user) => {
             queryClient.setQueryData(["/api/auth/user"], user);
             toast({ title: t('account_created') });
-            setLocation("/");
+            setLocation(redirectTo);
         },
         onError: (error: Error) => {
             toast({

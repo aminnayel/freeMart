@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { subscribeToPushNotifications } from "@/lib/push-notifications";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,8 @@ import { useAuth } from "@/hooks/useAuth";
 // New shop components
 import { ProductCard } from "@/components/shop/product-card";
 import { CategoryRow } from "@/components/shop/category-tile";
-import { HeroBanner, defaultBanners } from "@/components/shop/hero-banner";
+import { HeroBanner } from "@/components/shop/hero-banner";
+import type { Offer } from "@shared/schema";
 import { AutoScrollArea } from "@/components/ui/auto-scroll-area";
 import { QuantitySelector } from "@/components/shop/quantity-selector";
 import { ProductDetailsContent } from "@/components/shop/product-details-content";
@@ -34,6 +35,7 @@ export default function Shop() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [notifiedProducts, setNotifiedProducts] = useState<Set<number>>(new Set());
+  const initialUrlSyncDone = useRef(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -82,12 +84,73 @@ export default function Shop() {
     return translateContent(product.description || "", i18n.language);
   };
 
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
 
-  // Sync search query and category with URL params on initial load
+  // Fetch dynamic offers from admin
+  const { data: offers = [], isLoading: isOffersLoading } = useQuery<Offer[]>({
+    queryKey: ["/api/offers"],
+  });
+
+  // Helper to convert offers to banner format (convert nulls to undefined for Banner type)
+  const offerBanners = offers.map(offer => ({
+    id: offer.id,
+    title: isRTL ? offer.title : (offer.titleEn || offer.title),
+    subtitle: (isRTL ? offer.subtitle : (offer.subtitleEn || offer.subtitle)) || undefined,
+    imageUrl: offer.imageUrl || undefined,
+    backgroundColor: offer.backgroundColor || undefined,
+    ctaText: (isRTL ? offer.ctaText : (offer.ctaTextEn || offer.ctaText)) || undefined,
+    ctaLink: offer.linkValue,
+    linkType: offer.linkType,
+  }));
+
+  // Handle offer click navigation
+  const handleOfferClick = (banner: any) => {
+    const linkType = banner.linkType;
+    const linkValue = banner.ctaLink;
+
+    switch (linkType) {
+      case 'category':
+        const category = categories?.find(c => c.slug === linkValue);
+        if (category) {
+          setSelectedCategory(category.id);
+          setTimeout(() => {
+            document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
+        break;
+      case 'product':
+        const productId = parseInt(linkValue);
+        if (productId) {
+          const product = products?.find(p => p.id === productId);
+          if (product) {
+            setSelectedProduct(product);
+          }
+        }
+        break;
+      case 'search':
+        setSearchQuery(linkValue);
+        setSelectedCategory(null);
+        break;
+      case 'url':
+        if (linkValue.startsWith('http')) {
+          window.open(linkValue, '_blank');
+        } else {
+          setLocation(linkValue);
+        }
+        break;
+      default:
+        document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Sync search query and category with URL params on initial load (run only once when categories load)
   useEffect(() => {
+    // Prevent running multiple times
+    if (initialUrlSyncDone.current) return;
+    if (categories.length === 0) return; // Wait for categories to load
+
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get('search');
     const urlCategory = urlParams.get('category');
@@ -95,13 +158,15 @@ export default function Shop() {
     if (urlSearch) {
       setSearchQuery(urlSearch);
       setSelectedCategory(null);
-    } else if (urlCategory && categories.length > 0) {
+    } else if (urlCategory) {
       // Find category by slug
       const category = categories.find(c => c.slug === urlCategory || c.slug === `/${urlCategory}`);
       if (category) {
         setSelectedCategory(category.id);
       }
     }
+
+    initialUrlSyncDone.current = true;
   }, [categories]);
 
   const { data: products = [], isLoading: isProductsLoading } = useQuery<Product[]>({
@@ -141,6 +206,13 @@ export default function Shop() {
     queryKey: ["/api/cart"],
     retry: false,
   });
+
+  // Batch fetch wishlist product IDs (replaces N individual checks with 1 call)
+  const { data: wishlistData } = useQuery<{ productIds: number[] }>({
+    queryKey: ["/api/wishlist/product-ids"],
+    enabled: !!user,
+  });
+  const wishlistProductIds = new Set(wishlistData?.productIds || []);
 
   // Mutations
   const addToCartMutation = useMutation({
@@ -389,6 +461,63 @@ export default function Shop() {
   // Hot Deals / Featured Products Section (horizontal scroll)
   const hotDeals = products.filter(p => p.isAvailable && p.stock && p.stock > 0).slice(0, 8);
 
+  // Shimmer skeleton for instant visual feedback
+  const ShimmerSkeleton = () => (
+    <div className="animate-pulse">
+      {/* Banner Skeleton */}
+      <div className="px-4 pt-4">
+        <div className="h-36 bg-gradient-to-r from-muted via-muted/80 to-muted rounded-3xl" />
+      </div>
+
+      {/* Hot Deals Skeleton */}
+      <div className="px-4 mt-6">
+        <div className="h-5 w-32 bg-muted rounded mb-4" />
+        <div className="flex gap-4 overflow-hidden">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="w-[160px] flex-shrink-0">
+              <div className="h-32 bg-muted rounded-xl mb-2" />
+              <div className="h-4 bg-muted rounded w-3/4 mb-1" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Categories Skeleton */}
+      <div className="px-4 mt-6">
+        <div className="h-5 w-24 bg-muted rounded mb-4" />
+        <div className="flex gap-3 overflow-hidden">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="w-16 flex-shrink-0 flex flex-col items-center">
+              <div className="w-14 h-14 bg-muted rounded-2xl mb-2" />
+              <div className="h-3 bg-muted rounded w-12" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Products Grid Skeleton */}
+      <div className="px-4 mt-6">
+        <div className="h-5 w-28 bg-muted rounded mb-4" />
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="bg-card rounded-2xl overflow-hidden shadow-sm">
+              <div className="h-28 bg-muted" />
+              <div className="p-3">
+                <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                <div className="h-4 bg-muted rounded w-1/2 mb-3" />
+                <div className="h-9 bg-muted rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Check if initial data is loading
+  const isInitialLoading = isCategoriesLoading || isOffersLoading || (isProductsLoading && products.length === 0);
+
   return (
     <div className="min-h-screen bg-background">
       {/* ======================================== */}
@@ -397,7 +526,10 @@ export default function Shop() {
       <div className="lg:hidden">
         {/* Main Content */}
         <div className="pb-24 pt-4">
-          {searchQuery ? (
+          {isInitialLoading && !searchQuery ? (
+            // Show shimmer skeleton while initial data loads
+            <ShimmerSkeleton />
+          ) : searchQuery ? (
             // Search Results View - Grouped by Category
             <div className="p-4">
               <p className="text-sm text-muted-foreground mb-4">
@@ -437,6 +569,7 @@ export default function Shop() {
                             onNotifyMe={() => handleNotifyMe(product.id)}
                             onClick={() => setSelectedProduct(product)}
                             isRTL={isRTL}
+                            isInWishlist={wishlistProductIds.has(product.id)}
                             t={t}
                           />
                         ))}
@@ -446,8 +579,8 @@ export default function Shop() {
                 });
               })()}
               {products.length === 0 && !isProductsLoading && (
-                <div className="text-center py-16">
-                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="flex flex-col items-center justify-center text-center py-16">
+                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-4">
                     <Search className="w-10 h-10 text-muted-foreground/50" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2">{t('no_products')}</h3>
@@ -460,33 +593,18 @@ export default function Shop() {
             <div className="space-y-6">
               {/* Hero Banner */}
               <div className="px-4 pt-4">
-                <HeroBanner
-                  banners={defaultBanners.map(b => ({
-                    ...b,
-                    title: isRTL ? (b.id === 1 ? '🥬 عروض الخضروات الطازجة!' : b.id === 2 ? '🎉 عرض نهاية الأسبوع' : '📦 منتجات جديدة') : b.title,
-                    subtitle: isRTL ? (b.id === 1 ? 'خصم حتى 30% على الفواكه والخضروات' : b.id === 2 ? 'توصيل مجاني للطلبات أكثر من 200 جنيه' : 'اكتشف أحدث المنتجات') : b.subtitle,
-                    ctaText: isRTL ? 'تسوق الآن' : b.ctaText,
-                    // Map banner IDs to category slugs or IDs
-                    ctaLink: b.id === 1 ? 'fresh-produce' : b.id === 3 ? 'new-arrivals' : undefined
-                  }))}
-                  isRTL={isRTL}
-                  onBannerClick={(banner) => {
-                    // Find category by slug (ctaLink)
-                    if (banner.ctaLink) {
-                      const category = categories?.find(c => c.slug === banner.ctaLink);
-                      if (category) {
-                        setSelectedCategory(category.id);
-                        // Wait for render then scroll to products grid
-                        setTimeout(() => {
-                          document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }, 100);
-                        return;
-                      }
-                    }
-                    // Fallback: just scroll to products grid
-                    document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
-                />
+                {offerBanners.length > 0 ? (
+                  <HeroBanner
+                    banners={offerBanners}
+                    isRTL={isRTL}
+                    onBannerClick={handleOfferClick}
+                  />
+                ) : (
+                  <div className="rounded-3xl bg-gradient-to-r from-primary/80 to-primary p-6 text-white">
+                    <h3 className="text-xl font-bold mb-2">{isRTL ? 'مرحباً بك!' : 'Welcome!'}</h3>
+                    <p className="text-white/80 text-sm">{isRTL ? 'اكتشف أفضل المنتجات والعروض' : 'Discover the best products and offers'}</p>
+                  </div>
+                )}
               </div>
 
               {/* Hot Deals Section */}
@@ -513,6 +631,7 @@ export default function Shop() {
                           onClick={() => setSelectedProduct(product)}
                           isRTL={isRTL}
                           isNotifySubscribed={notifiedProducts.has(product.id)}
+                          isInWishlist={wishlistProductIds.has(product.id)}
                           t={t}
                         />
                       </div>
@@ -522,7 +641,7 @@ export default function Shop() {
               )}
 
               {/* Categories Row */}
-              <div className="px-4">
+              <div id="categories-section" className="px-4 scroll-mt-4">
                 <SectionHeader
                   icon={Sparkles}
                   title={isRTL ? 'الأقسام' : 'Categories'}
@@ -530,7 +649,13 @@ export default function Shop() {
                 <CategoryRow
                   categories={categories}
                   activeId={selectedCategory}
-                  onSelect={setSelectedCategory}
+                  onSelect={(id) => {
+                    setSelectedCategory(id);
+                    // Scroll to categories section after selection to keep it in view
+                    setTimeout(() => {
+                      document.getElementById('categories-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                  }}
                   isRTL={isRTL}
                 />
               </div>
@@ -569,6 +694,7 @@ export default function Shop() {
                           onClick={() => setSelectedProduct(product)}
                           isRTL={isRTL}
                           isNotifySubscribed={notifiedProducts.has(product.id)}
+                          isInWishlist={wishlistProductIds.has(product.id)}
                           t={t}
                         />
                       </div>
@@ -612,21 +738,69 @@ export default function Shop() {
 
           {/* Desktop Products Grid */}
 
+          {/* Desktop Shimmer Skeleton */}
+          {isInitialLoading && !searchQuery && (
+            <div className="animate-pulse space-y-10">
+              {/* Banner Skeleton */}
+              <div className="h-48 bg-gradient-to-r from-muted via-muted/80 to-muted rounded-3xl" />
+
+              {/* Hot Deals Skeleton */}
+              <div>
+                <div className="h-6 w-40 bg-muted rounded mb-6" />
+                <div className="flex gap-6 overflow-hidden">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="w-[220px] flex-shrink-0">
+                      <div className="h-40 bg-muted rounded-xl mb-3" />
+                      <div className="h-5 bg-muted rounded w-3/4 mb-2" />
+                      <div className="h-5 bg-muted rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Categories Skeleton */}
+              <div>
+                <div className="h-6 w-32 bg-muted rounded mb-6" />
+                <div className="flex gap-4 overflow-hidden">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                    <div key={i} className="flex flex-col items-center">
+                      <div className="w-20 h-20 bg-muted rounded-2xl mb-2" />
+                      <div className="h-4 bg-muted rounded w-16" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Products Grid Skeleton */}
+              <div>
+                <div className="h-6 w-36 bg-muted rounded mb-6" />
+                <div className="grid grid-cols-4 xl:grid-cols-5 gap-6">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+                    <div key={i} className="bg-card rounded-2xl overflow-hidden shadow-sm">
+                      <div className="h-36 bg-muted" />
+                      <div className="p-4">
+                        <div className="h-5 bg-muted rounded w-3/4 mb-2" />
+                        <div className="h-5 bg-muted rounded w-1/2 mb-4" />
+                        <div className="h-10 bg-muted rounded-xl" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Desktop Hero Banner */}
-          {!searchQuery && (
+          {!isInitialLoading && !searchQuery && offerBanners.length > 0 && (
             <HeroBanner
-              banners={defaultBanners.map(b => ({
-                ...b,
-                title: isRTL ? (b.id === 1 ? '🥬 عروض الخضروات الطازجة!' : b.id === 2 ? '🎉 عرض نهاية الأسبوع' : '📦 منتجات جديدة') : b.title,
-                subtitle: isRTL ? (b.id === 1 ? 'خصم حتى 30% على الفواكه والخضروات' : b.id === 2 ? 'توصيل مجاني للطلبات أكثر من 200 جنيه' : 'اكتشف أحدث المنتجات') : b.subtitle,
-                ctaText: isRTL ? 'تسوق الآن' : b.ctaText,
-              }))}
+              banners={offerBanners}
               isRTL={isRTL}
+              onBannerClick={handleOfferClick}
             />
           )}
 
           {/* Desktop Hot Deals Section */}
-          {!searchQuery && hotDeals.length > 0 && (
+          {!isInitialLoading && !searchQuery && hotDeals.length > 0 && (
             <div>
               <SectionHeader
                 icon={Flame}
@@ -654,7 +828,7 @@ export default function Shop() {
             </div>
           )}
           {/* Horizontal Categories Row */}
-          {!searchQuery && (
+          {!isInitialLoading && !searchQuery && (
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -674,105 +848,109 @@ export default function Shop() {
           )}
 
           {/* All Products Section */}
-          <div id="desktop-products-grid">
-            <SectionHeader
-              icon={Package}
-              title={selectedCategory
-                ? categories.find(c => c.id === selectedCategory)?.name || (isRTL ? 'المنتجات' : 'Products')
-                : (isRTL ? 'جميع المنتجات' : 'All Products')
-              }
-              subtitle={selectedCategory ? `${products.length} ${isRTL ? 'منتج' : 'products'}` : undefined}
-            />
+          {!isInitialLoading && (
+            <div id="desktop-products-grid">
+              <SectionHeader
+                icon={Package}
+                title={selectedCategory
+                  ? categories.find(c => c.id === selectedCategory)?.name || (isRTL ? 'المنتجات' : 'Products')
+                  : (isRTL ? 'جميع المنتجات' : 'All Products')
+                }
+                subtitle={selectedCategory ? `${products.length} ${isRTL ? 'منتج' : 'products'}` : undefined}
+              />
 
-            {isProductsLoading ? (
-              <div className="flex flex-col justify-center items-center py-24 space-y-4">
-                <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full" />
-                <p className="text-muted-foreground">{t('loading_products')}</p>
-              </div>
-            ) : products.length === 0 ? (
-              <div className="text-center py-24">
-                <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-10 h-10 text-muted-foreground" />
+              {isProductsLoading ? (
+                <div className="flex flex-col justify-center items-center py-24 space-y-4">
+                  <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full" />
+                  <p className="text-muted-foreground">{t('loading_products')}</p>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{t('no_products')}</h3>
-                <p className="text-muted-foreground">{isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try different search terms'}</p>
-              </div>
-            ) : searchQuery ? (
-              // Desktop grouped search results
-              <div className="space-y-8">
-                {(() => {
-                  const grouped = products.reduce((acc, product) => {
-                    const catId = product.categoryId;
-                    if (!acc[catId]) acc[catId] = [];
-                    acc[catId].push(product);
-                    return acc;
-                  }, {} as Record<number, typeof products>);
-
-                  return Object.entries(grouped).map(([catId, categoryProducts]) => {
-                    const category = categories.find(c => c.id === Number(catId));
-                    const categoryName = i18n.language === 'en' && category?.englishName
-                      ? category.englishName
-                      : category?.name || (isRTL ? 'أخرى' : 'Other');
-
-                    return (
-                      <div key={catId}>
-                        <div className="flex items-center gap-2 mb-4">
-                          <span className="text-2xl">{category?.imageUrl || '📦'}</span>
-                          <h3 className="font-bold text-lg">{categoryName}</h3>
-                          <span className="text-sm text-muted-foreground">({categoryProducts.length})</span>
-                        </div>
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                          {categoryProducts.map((product, index) => (
-                            <div
-                              key={product.id}
-                              className="animate-in fade-in slide-in-from-bottom-2"
-                              style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
-                            >
-                              <ProductCard
-                                product={product}
-                                quantity={getCartQuantity(product.id)}
-                                onAddToCart={() => handleAddToCart(product.id)}
-                                onIncrement={() => handleIncrement(product.id)}
-                                onDecrement={() => handleDecrement(product.id)}
-                                onNotifyMe={() => handleNotifyMe(product.id)}
-                                onClick={() => setSelectedProduct(product)}
-                                isRTL={isRTL}
-                                isNotifySubscribed={notifiedProducts.has(product.id)}
-                                t={t}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                {products.map((product, index) => (
-                  <div
-                    key={product.id}
-                    className="animate-in fade-in slide-in-from-bottom-2"
-                    style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
-                  >
-                    <ProductCard
-                      product={product}
-                      quantity={getCartQuantity(product.id)}
-                      onAddToCart={() => handleAddToCart(product.id)}
-                      onIncrement={() => handleIncrement(product.id)}
-                      onDecrement={() => handleDecrement(product.id)}
-                      onNotifyMe={() => handleNotifyMe(product.id)}
-                      onClick={() => setSelectedProduct(product)}
-                      isRTL={isRTL}
-                      isNotifySubscribed={notifiedProducts.has(product.id)}
-                      t={t}
-                    />
+              ) : products.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-24">
+                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <Search className="w-10 h-10 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <h3 className="text-xl font-semibold mb-2">{t('no_products')}</h3>
+                  <p className="text-muted-foreground">{isRTL ? 'جرب البحث بكلمات مختلفة' : 'Try different search terms'}</p>
+                </div>
+              ) : searchQuery ? (
+                // Desktop grouped search results
+                <div className="space-y-8">
+                  {(() => {
+                    const grouped = products.reduce((acc, product) => {
+                      const catId = product.categoryId;
+                      if (!acc[catId]) acc[catId] = [];
+                      acc[catId].push(product);
+                      return acc;
+                    }, {} as Record<number, typeof products>);
+
+                    return Object.entries(grouped).map(([catId, categoryProducts]) => {
+                      const category = categories.find(c => c.id === Number(catId));
+                      const categoryName = i18n.language === 'en' && category?.englishName
+                        ? category.englishName
+                        : category?.name || (isRTL ? 'أخرى' : 'Other');
+
+                      return (
+                        <div key={catId}>
+                          <div className="flex items-center gap-2 mb-4">
+                            <span className="text-2xl">{category?.imageUrl || '📦'}</span>
+                            <h3 className="font-bold text-lg">{categoryName}</h3>
+                            <span className="text-sm text-muted-foreground">({categoryProducts.length})</span>
+                          </div>
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                            {categoryProducts.map((product, index) => (
+                              <div
+                                key={product.id}
+                                className="animate-in fade-in slide-in-from-bottom-2"
+                                style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
+                              >
+                                <ProductCard
+                                  product={product}
+                                  quantity={getCartQuantity(product.id)}
+                                  onAddToCart={() => handleAddToCart(product.id)}
+                                  onIncrement={() => handleIncrement(product.id)}
+                                  onDecrement={() => handleDecrement(product.id)}
+                                  onNotifyMe={() => handleNotifyMe(product.id)}
+                                  onClick={() => setSelectedProduct(product)}
+                                  isRTL={isRTL}
+                                  isNotifySubscribed={notifiedProducts.has(product.id)}
+                                  isInWishlist={wishlistProductIds.has(product.id)}
+                                  t={t}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              ) : (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                  {products.map((product, index) => (
+                    <div
+                      key={product.id}
+                      className="animate-in fade-in slide-in-from-bottom-2"
+                      style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
+                    >
+                      <ProductCard
+                        product={product}
+                        quantity={getCartQuantity(product.id)}
+                        onAddToCart={() => handleAddToCart(product.id)}
+                        onIncrement={() => handleIncrement(product.id)}
+                        onDecrement={() => handleDecrement(product.id)}
+                        onNotifyMe={() => handleNotifyMe(product.id)}
+                        onClick={() => setSelectedProduct(product)}
+                        isRTL={isRTL}
+                        isNotifySubscribed={notifiedProducts.has(product.id)}
+                        isInWishlist={wishlistProductIds.has(product.id)}
+                        t={t}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

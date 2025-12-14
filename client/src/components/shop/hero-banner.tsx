@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Banner {
@@ -26,42 +25,83 @@ export function HeroBanner({
     isRTL = false,
     onBannerClick,
 }: HeroBannerProps) {
-    const [activeIndex, setActiveIndex] = useState(0);
+    // For infinite scroll, we use a virtual index that can go beyond array bounds
+    // Actual slides: [clone-last, ...banners, clone-first]
+    // Virtual index 0 = clone of last, 1 = first real, ..., n = last real, n+1 = clone of first
+    const [currentIndex, setCurrentIndex] = useState(1); // Start at first real slide
+    const [isTransitioning, setIsTransitioning] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [dragStartX, setDragStartX] = useState(0);
     const [dragDelta, setDragDelta] = useState(0);
+    const hasDragged = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const SWIPE_THRESHOLD = 50;
+    const DRAG_THRESHOLD = 5;
+
+    // Create extended array with clones for infinite effect
+    const extendedBanners = banners.length > 0
+        ? [banners[banners.length - 1], ...banners, banners[0]]
+        : [];
+
+    // Get the real index (0-based) for dot indicator
+    const getRealIndex = () => {
+        if (currentIndex === 0) return banners.length - 1;
+        if (currentIndex === extendedBanners.length - 1) return 0;
+        return currentIndex - 1;
+    };
+
+    // Handle seamless loop reset
+    useEffect(() => {
+        if (!isTransitioning) {
+            // Re-enable transition after instant jump
+            const timer = setTimeout(() => setIsTransitioning(true), 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isTransitioning]);
+
+    // Check if we need to do an instant jump after transition ends
+    const handleTransitionEnd = useCallback(() => {
+        if (currentIndex === 0) {
+            // Jumped to clone at start, instantly go to real last slide
+            setIsTransitioning(false);
+            setCurrentIndex(extendedBanners.length - 2);
+        } else if (currentIndex === extendedBanners.length - 1) {
+            // Jumped to clone at end, instantly go to real first slide
+            setIsTransitioning(false);
+            setCurrentIndex(1);
+        }
+    }, [currentIndex, extendedBanners.length]);
 
     // Auto-play
     useEffect(() => {
         if (isPaused || banners.length <= 1) return;
 
         const timer = setInterval(() => {
-            setActiveIndex((prev) => (prev + 1) % banners.length);
+            setCurrentIndex((prev) => prev + 1);
         }, autoPlayInterval);
 
         return () => clearInterval(timer);
     }, [isPaused, banners.length, autoPlayInterval]);
 
-    const goToSlide = (index: number) => {
-        setActiveIndex(index);
+    const goToSlide = (realIndex: number) => {
+        setCurrentIndex(realIndex + 1); // +1 because of clone at start
     };
 
     const goToPrev = useCallback(() => {
-        setActiveIndex((prev) => (prev - 1 + banners.length) % banners.length);
-    }, [banners.length]);
+        setCurrentIndex((prev) => prev - 1);
+    }, []);
 
     const goToNext = useCallback(() => {
-        setActiveIndex((prev) => (prev + 1) % banners.length);
-    }, [banners.length]);
+        setCurrentIndex((prev) => prev + 1);
+    }, []);
 
     // Handle drag/swipe start
     const handleDragStart = useCallback((clientX: number) => {
         setIsDragging(true);
         setDragStartX(clientX);
         setDragDelta(0);
+        hasDragged.current = false;
         setIsPaused(true);
     }, []);
 
@@ -70,6 +110,9 @@ export function HeroBanner({
         if (!isDragging) return;
         const delta = clientX - dragStartX;
         setDragDelta(delta);
+        if (Math.abs(delta) > DRAG_THRESHOLD) {
+            hasDragged.current = true;
+        }
     }, [isDragging, dragStartX]);
 
     // Handle drag/swipe end
@@ -79,8 +122,6 @@ export function HeroBanner({
         setIsDragging(false);
 
         if (Math.abs(dragDelta) > SWIPE_THRESHOLD) {
-            // In RTL: swipe right (positive) = next, swipe left (negative) = prev
-            // In LTR: swipe left (negative) = next, swipe right (positive) = prev
             if (isRTL) {
                 dragDelta > 0 ? goToNext() : goToPrev();
             } else {
@@ -128,21 +169,86 @@ export function HeroBanner({
 
     if (banners.length === 0) return null;
 
-    // Calculate transform for gallery effect
+    // Calculate transform
     const getTranslateX = () => {
         const containerWidth = containerRef.current?.offsetWidth || 300;
         const dragPercent = (dragDelta / containerWidth) * 100;
 
         if (isRTL) {
-            // In RTL, items ordered [2][1][0] starting from right.
-            // To see [1] (left of 0), we move Right (positive).
-            return (activeIndex * 100) + dragPercent;
+            return (currentIndex * 100) + dragPercent;
         }
-
-        // In LTR, items ordered [0][1][2].
-        // To see [1] (right of 0), we move Left (negative).
-        return (-activeIndex * 100) + dragPercent;
+        return (-currentIndex * 100) + dragPercent;
     };
+
+    // Render a single banner slide
+    const renderBanner = (banner: Banner, index: number) => (
+        <div
+            key={`slide-${index}`}
+            className="w-full flex-shrink-0"
+        >
+            <div
+                className={cn(
+                    "relative h-40 sm:h-48 md:h-56 lg:h-64 cursor-pointer",
+                    "bg-gradient-to-r from-primary to-primary/80"
+                )}
+                style={{
+                    background: banner.backgroundColor || undefined,
+                }}
+                onClick={() => {
+                    if (!hasDragged.current) {
+                        onBannerClick?.(banner);
+                    }
+                }}
+            >
+                {banner.imageUrl && (
+                    <img
+                        src={banner.imageUrl}
+                        alt={banner.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        draggable={false}
+                    />
+                )}
+
+                <div className={cn(
+                    "absolute inset-0",
+                    isRTL
+                        ? "bg-gradient-to-r from-transparent via-black/30 to-black/60"
+                        : "bg-gradient-to-r from-black/60 via-black/30 to-transparent"
+                )} />
+
+                <div
+                    className={cn(
+                        "absolute inset-0 flex flex-col justify-center p-6 md:p-8",
+                        isRTL
+                            ? "items-start text-right pe-16 ps-6 md:ps-12"
+                            : "items-start text-left ps-6 md:ps-12 pe-16"
+                    )}
+                >
+                    <h2
+                        className={cn(
+                            "text-white text-xl sm:text-2xl md:text-3xl font-bold mb-2 drop-shadow-lg max-w-md",
+                            isRTL && "text-right"
+                        )}
+                        style={{ color: banner.textColor || 'white' }}
+                    >
+                        {banner.title}
+                    </h2>
+
+                    {banner.subtitle && (
+                        <p
+                            className={cn(
+                                "text-white/90 text-sm sm:text-base mb-4 max-w-sm drop-shadow",
+                                isRTL && "text-right"
+                            )}
+                            style={{ color: banner.textColor || 'white' }}
+                        >
+                            {banner.subtitle}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div
@@ -158,93 +264,18 @@ export function HeroBanner({
             onMouseUp={handleMouseUp}
             style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'pan-y pinch-zoom' }}
         >
-            {/* Slides Container - Gallery Style */}
+            {/* Slides Container */}
             <div
                 className={cn(
                     "flex",
-                    !isDragging && "transition-transform duration-300 ease-out"
+                    isTransitioning && !isDragging && "transition-transform duration-300 ease-out"
                 )}
                 style={{
                     transform: `translateX(${getTranslateX()}%)`,
                 }}
+                onTransitionEnd={handleTransitionEnd}
             >
-                {banners.map((banner) => (
-                    <div
-                        key={banner.id}
-                        className="w-full flex-shrink-0"
-                    >
-                        {/* Individual Banner */}
-                        <div
-                            className={cn(
-                                "relative h-40 sm:h-48 md:h-56 lg:h-64 cursor-pointer",
-                                "bg-gradient-to-r from-primary to-primary/80"
-                            )}
-                            style={{
-                                background: banner.backgroundColor || undefined,
-                            }}
-                            onClick={() => !isDragging && Math.abs(dragDelta) < 5 && onBannerClick?.(banner)}
-                        >
-                            {/* Background Image */}
-                            {banner.imageUrl && (
-                                <img
-                                    src={banner.imageUrl}
-                                    alt={banner.title}
-                                    className="absolute inset-0 w-full h-full object-cover"
-                                    draggable={false}
-                                />
-                            )}
-
-                            {/* Gradient Overlay */}
-                            <div className={cn(
-                                "absolute inset-0",
-                                isRTL
-                                    ? "bg-gradient-to-r from-transparent via-black/30 to-black/60"
-                                    : "bg-gradient-to-r from-black/60 via-black/30 to-transparent"
-                            )} />
-
-                            {/* Content - Use items-start for RTL because global dir=rtl inverts flex alignment */}
-                            <div
-                                className={cn(
-                                    "absolute inset-0 flex flex-col justify-center p-6 md:p-8",
-                                    isRTL
-                                        ? "items-start text-right pe-16 ps-6 md:ps-12"
-                                        : "items-start text-left ps-6 md:ps-12 pe-16"
-                                )}
-                            >
-                                <h2
-                                    className={cn(
-                                        "text-white text-xl sm:text-2xl md:text-3xl font-bold mb-2 drop-shadow-lg max-w-md",
-                                        isRTL && "text-right"
-                                    )}
-                                    style={{ color: banner.textColor || 'white' }}
-                                >
-                                    {banner.title}
-                                </h2>
-
-                                {banner.subtitle && (
-                                    <p
-                                        className={cn(
-                                            "text-white/90 text-sm sm:text-base mb-4 max-w-sm drop-shadow",
-                                            isRTL && "text-right"
-                                        )}
-                                        style={{ color: banner.textColor || 'white' }}
-                                    >
-                                        {banner.subtitle}
-                                    </p>
-                                )}
-
-                                {banner.ctaText && (
-                                    <Button
-                                        className="bg-white text-primary hover:bg-white/90 font-semibold rounded-xl shadow-lg"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {banner.ctaText}
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                {extendedBanners.map((banner, index) => renderBanner(banner, index))}
             </div>
 
             {/* Dots Indicator */}
@@ -255,7 +286,7 @@ export function HeroBanner({
                             key={index}
                             className={cn(
                                 "w-2 h-2 rounded-full transition-all duration-300",
-                                index === activeIndex
+                                index === getRealIndex()
                                     ? "bg-white w-6"
                                     : "bg-white/50 hover:bg-white/70"
                             )}
@@ -297,3 +328,4 @@ export const defaultBanners: Banner[] = [
 ];
 
 export default HeroBanner;
+

@@ -11,6 +11,7 @@ import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { NotificationPrompt } from "@/components/notification-prompt";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { AuthModalProvider } from "@/components/auth/auth-modal-context";
+import { ThemeProvider } from "@/components/theme-provider";
 import NotFound from "@/pages/not-found";
 import Shop from "@/pages/shop";
 import Cart from "@/pages/cart";
@@ -19,6 +20,7 @@ import Profile from "@/pages/profile";
 import Admin from "@/pages/admin";
 import AuthPage from "@/pages/auth";
 import OrderDetails from "@/pages/order-details";
+import Wishlist from "@/pages/wishlist";
 
 import { useEffect } from "react";
 import { useLocation } from "wouter";
@@ -60,6 +62,7 @@ function Router() {
         <Route path="/" component={Shop} />
         <Route path="/shop" component={Shop} />
         <Route path="/cart" component={Cart} />
+        <Route path="/wishlist" component={Wishlist} />
         <Route path="/checkout">
           <RequireAuth>
             <Checkout />
@@ -94,17 +97,24 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthModalProvider>
-          <Toaster />
-          <Router />
-          <PWAInstallPrompt />
-          <NotificationPrompt />
-          <AuthModal />
-        </AuthModalProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthModalProvider>
+            <Toaster />
+            <Router />
+            <PWAInstallPrompt />
+            <NotificationPrompt />
+            <AuthModal />
+          </AuthModalProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

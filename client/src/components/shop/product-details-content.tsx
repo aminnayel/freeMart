@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { translateContent } from "@/lib/translator";
 import i18n from "@/lib/i18n";
 import type { Product } from "@shared/schema";
+import WishlistButton from "./wishlist-button";
 
 interface ProductDetailsContentProps {
     product: Product;
@@ -72,12 +73,19 @@ export const ProductDetailsContent = ({
                         </Badge>
                     </div>
                 )}
+                {/* Wishlist Button on Image */}
+                <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4">
+                    <WishlistButton
+                        productId={product.id}
+                        className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-lg h-10 w-10"
+                    />
+                </div>
             </div>
 
             {/* Product Info */}
             <div className="p-6 space-y-4">
-                <div>
-                    <h2 className={cn("text-2xl font-bold", isRTL && "text-right")}>
+                <div className="flex items-start justify-between">
+                    <h2 className={cn("text-2xl font-bold flex-1", isRTL && "text-right")}>
                         {getProductName(product)}
                     </h2>
                 </div>

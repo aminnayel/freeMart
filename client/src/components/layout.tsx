@@ -1,12 +1,13 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, User, Home, Menu, X, LayoutDashboard, Search } from "lucide-react";
+import { ShoppingCart, User, Home, Menu, X, LayoutDashboard, Search, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthModal } from "@/components/auth/auth-modal-context";
 import { useState, useEffect, useRef } from "react";
@@ -21,6 +22,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState("");
   const [desktopSearchQuery, setDesktopSearchQuery] = useState("");
+  const [preSearchLocation, setPreSearchLocation] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Listen for clear-search event from shop.tsx
@@ -38,17 +40,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
+  // Fetch wishlist count (works for guests too)
+  const { data: wishlistItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/wishlist"],
+  });
+
   const cartCount = cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  const wishlistCount = wishlistItems.length;
 
   // Admin pages use their own content but still get the header
   const isAdminPage = location.startsWith('/admin');
 
   const navLinks = [
     { href: "/", label: isRTL ? 'المتجر' : 'Shop', icon: Home },
+    { href: "/wishlist", label: isRTL ? 'المفضلة' : 'Wishlist', icon: Heart, badge: wishlistCount },
     { href: "/cart", label: isRTL ? 'السلة' : 'Cart', icon: ShoppingCart, badge: cartCount },
   ];
 
-  const isShopPage = location === "/" || location.startsWith("/?") || location === "/shop" || location.startsWith("/shop?");
+
 
   // Debounced search-as-you-type for mobile
   const handleMobileSearchChange = (value: string) => {
@@ -110,44 +119,74 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </a>
             </Link>
 
-            {/* Unified Search Bar - Responsive for both Mobile and Desktop */}
-            {isShopPage && (
+            {/* Unified Search Bar - Responsive for both Mobile and Desktop (shown on all non-admin pages) */}
+            {!isAdminPage && (
               <div className="flex-1 max-w-lg mx-2 md:mx-6">
-                <div className="relative w-full">
-                  <Search className={cn(
-                    "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
-                    isRTL ? "right-3 md:right-4" : "left-3 md:left-4"
-                  )} />
-                  <Input
-                    className={cn(
-                      "h-10 md:h-11 rounded-xl bg-muted/50 border-0 text-sm w-full",
-                      isRTL ? "pr-9 md:pr-11 pl-8 md:pl-10" : "pl-9 md:pl-11 pr-8 md:pr-10"
-                    )}
-                    placeholder={t('search_placeholder')}
-                    value={desktopSearchQuery}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setDesktopSearchQuery(value);
-                      setMobileSearchQuery(value); // Keep in sync
-                      window.dispatchEvent(new CustomEvent('header-search', { detail: value }));
-                    }}
-                  />
-                  {desktopSearchQuery && (
-                    <button
-                      onClick={() => {
-                        setDesktopSearchQuery('');
-                        setMobileSearchQuery('');
-                        window.dispatchEvent(new CustomEvent('header-search', { detail: '' }));
-                      }}
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (desktopSearchQuery.trim()) {
+                    setLocation(`/?search=${encodeURIComponent(desktopSearchQuery.trim())}`);
+                  }
+                }}>
+                  <div className="relative w-full">
+                    <Search className={cn(
+                      "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground",
+                      isRTL ? "right-3 md:right-4" : "left-3 md:left-4"
+                    )} />
+                    <Input
                       className={cn(
-                        "absolute top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full",
-                        isRTL ? "left-2 md:left-3" : "right-2 md:right-3"
+                        "h-10 md:h-11 rounded-xl bg-muted/50 border-0 text-sm w-full",
+                        isRTL ? "pr-9 md:pr-11 pl-8 md:pl-10" : "pl-9 md:pl-11 pr-8 md:pr-10"
                       )}
-                    >
-                      <X className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
+                      placeholder={t('search_placeholder')}
+                      value={desktopSearchQuery}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setDesktopSearchQuery(value);
+                        setMobileSearchQuery(value);
+
+                        // Store pre-search location if not already searching
+                        if (!preSearchLocation && location !== '/' && !location.startsWith('/?')) {
+                          setPreSearchLocation(location);
+                        }
+                        // On shop page, use instant search via event
+                        const isOnShop = location === "/" || location.startsWith("/?");
+                        if (isOnShop) {
+                          window.dispatchEvent(new CustomEvent('header-search', { detail: value }));
+                        } else {
+                          // On other pages, debounce navigation to shop
+                          if (debounceRef.current) clearTimeout(debounceRef.current);
+                          debounceRef.current = setTimeout(() => {
+                            if (value.trim()) {
+                              setLocation(`/?search=${encodeURIComponent(value.trim())}`);
+                            }
+                          }, 500);
+                        }
+                      }}
+                    />
+                    {desktopSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDesktopSearchQuery('');
+                          setMobileSearchQuery('');
+                          window.dispatchEvent(new CustomEvent('header-search', { detail: '' }));
+                          // Return to pre-search location if available
+                          if (preSearchLocation && preSearchLocation !== '/' && !preSearchLocation.startsWith('/?')) {
+                            setLocation(preSearchLocation);
+                          }
+                          setPreSearchLocation(null);
+                        }}
+                        className={cn(
+                          "absolute top-1/2 -translate-y-1/2 p-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 rounded-full transition-colors",
+                          isRTL ? "left-1.5 md:left-2" : "right-1.5 md:right-2"
+                        )}
+                      >
+                        <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      </button>
+                    )}
+                  </div>
+                </form>
               </div>
             )}            {/* Mobile: Logo Menu Trigger */}
             <div className="md:hidden order-first">
@@ -262,8 +301,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 
 
-            {/* Mobile: Language Switcher */}
-            <div className="md:hidden order-last">
+            {/* Mobile: Language & Theme Switchers */}
+            <div className="md:hidden order-last flex items-center gap-1">
+              <ThemeToggle />
               <LanguageSwitcher />
             </div>
 
@@ -296,6 +336,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-3">
+              <ThemeToggle />
               <LanguageSwitcher />
               {user?.isAdmin && (
                 <Link href="/admin">
@@ -407,9 +448,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex justify-evenly items-center h-[3.75rem] px-2">
           {navLinks.map((link) => {
             const isActive = location === link.href;
+            const isShopLink = link.href === '/';
+
+            // Shop link clears search when clicked
+            const handleNavClick = (e: React.MouseEvent) => {
+              if (isShopLink && (desktopSearchQuery || mobileSearchQuery)) {
+                e.preventDefault();
+                setDesktopSearchQuery('');
+                setMobileSearchQuery('');
+                setPreSearchLocation(null);
+                window.dispatchEvent(new CustomEvent('header-search', { detail: '' }));
+                setLocation('/');
+              }
+            };
+
             return (
               <Link key={link.href} href={link.href}>
-                <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1 transition-all relative group ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                <a
+                  onClick={handleNavClick}
+                  className={`flex flex-col items-center justify-center gap-1 w-16 py-1 transition-all relative group ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                >
                   <div className={`relative p-1.5 rounded-2xl transition-all duration-300 ${isActive ? 'bg-primary/10 -translate-y-1' : 'group-active:scale-95'}`}>
                     <link.icon className={`w-6 h-6 transition-all duration-300 ${isActive ? 'fill-primary stroke-primary' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
                     {link.badge !== undefined && link.badge > 0 && (

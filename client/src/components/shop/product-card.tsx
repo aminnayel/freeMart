@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Plus, Minus, Bell, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { translateContent } from "@/lib/translator";
+import WishlistButton from "./wishlist-button";
 
 interface ProductCardProps {
     product: {
@@ -27,6 +28,8 @@ interface ProductCardProps {
     isLoading?: boolean;
     isRTL?: boolean;
     isNotifySubscribed?: boolean;
+    showWishlist?: boolean;
+    isInWishlist?: boolean;
     t: (key: string) => string;
 }
 
@@ -41,6 +44,8 @@ export function ProductCard({
     isLoading = false,
     isRTL = false,
     isNotifySubscribed = false,
+    showWishlist = true,
+    isInWishlist,
     t,
 }: ProductCardProps) {
     const [isPressed, setIsPressed] = useState(false);
@@ -127,6 +132,17 @@ export function ProductCard({
 
                 {/* Stock Badge */}
                 {getStockBadge()}
+
+                {/* Wishlist Button */}
+                {showWishlist && (
+                    <div className="absolute top-2 right-2 rtl:right-auto rtl:left-2 z-10">
+                        <WishlistButton
+                            productId={product.id}
+                            className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm h-8 w-8"
+                            isInWishlistProp={isInWishlist}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Content Section */}

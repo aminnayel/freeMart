@@ -10,6 +10,7 @@ import {
   insertOrderSchema,
   updateUserProfileSchema,
   insertProductNotificationSchema,
+  insertOfferSchema,
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 
@@ -626,6 +627,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // OFFERS ROUTES
+  // ==========================================
+
+  // Public: Get active offers (for customer-facing shop)
+  app.get('/api/offers', async (req, res) => {
+    try {
+      const offers = await storage.getOffers();
+      res.json(offers);
+    } catch (error) {
+      console.error("Error fetching offers:", error);
+      res.status(500).json({ message: "Failed to fetch offers" });
+    }
+  });
+
+  // Admin: Get all offers
+  app.get('/api/admin/offers', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const offers = await storage.getAllOffers();
+      res.json(offers);
+    } catch (error) {
+      console.error("Error fetching admin offers:", error);
+      res.status(500).json({ message: "Failed to fetch offers" });
+    }
+  });
+
+  // Admin: Get single offer
+  app.get('/api/admin/offers/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const offer = await storage.getOfferById(parseInt(req.params.id));
+      if (!offer) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+      res.json(offer);
+    } catch (error) {
+      console.error("Error fetching offer:", error);
+      res.status(500).json({ message: "Failed to fetch offer" });
+    }
+  });
+
+  // Admin: Create offer
+  app.post('/api/admin/offers', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = insertOfferSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({
+          message: fromZodError(result.error).toString()
+        });
+      }
+
+      const offer = await storage.createOffer(result.data);
+
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "CREATE_OFFER",
+        targetType: "offer",
+        targetId: offer.id,
+        details: JSON.stringify({
+          title: offer.title,
+          linkType: offer.linkType,
+          linkValue: offer.linkValue
+        }),
+      });
+
+      res.status(201).json(offer);
+    } catch (error) {
+      console.error("Error creating offer:", error);
+      res.status(500).json({ message: "Failed to create offer" });
+    }
+  });
+
+  // Admin: Update offer
+  app.put('/api/admin/offers/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const offerId = parseInt(req.params.id);
+      const offer = await storage.updateOffer(offerId, req.body);
+
+      if (!offer) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "UPDATE_OFFER",
+        targetType: "offer",
+        targetId: offerId,
+        details: JSON.stringify({
+          title: offer.title,
+          linkType: offer.linkType,
+          isActive: offer.isActive
+        }),
+      });
+
+      res.json(offer);
+    } catch (error) {
+      console.error("Error updating offer:", error);
+      res.status(500).json({ message: "Failed to update offer" });
+    }
+  });
+
+  // Admin: Delete offer
+  app.delete('/api/admin/offers/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const offerId = parseInt(req.params.id);
+      const offer = await storage.getOfferById(offerId);
+      const offerTitle = offer?.title || 'Unknown';
+
+      await storage.deleteOffer(offerId);
+
+      await storage.createAdminLog({
+        adminUserId: (req.user as any).id,
+        adminName: `${(req.user as any).firstName} ${(req.user as any).lastName}`.trim(),
+        action: "DELETE_OFFER",
+        targetType: "offer",
+        targetId: offerId,
+        details: JSON.stringify({ deletedOfferTitle: offerTitle }),
+      });
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting offer:", error);
+      res.status(500).json({ message: "Failed to delete offer" });
+    }
+  });
+
   // Category routes
   app.get('/api/categories', async (req, res) => {
     try {
@@ -915,6 +1043,330 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching admin logs:", error);
       res.status(500).json({ message: "Failed to fetch admin logs" });
+    }
+  });
+
+  // =====================================================
+  // DELIVERY ZONES & SLOTS
+  // =====================================================
+
+  app.get('/api/delivery-zones', async (req, res) => {
+    try {
+      const zones = await storage.getDeliveryZones();
+      res.json(zones);
+    } catch (error) {
+      console.error("Error fetching delivery zones:", error);
+      res.status(500).json({ message: "Failed to fetch delivery zones" });
+    }
+  });
+
+  app.get('/api/delivery-slots', async (req, res) => {
+    try {
+      const dateParam = req.query.date as string | undefined;
+      const date = dateParam ? new Date(dateParam) : undefined;
+      const slots = await storage.getDeliverySlots(date);
+      res.json(slots);
+    } catch (error) {
+      console.error("Error fetching delivery slots:", error);
+      res.status(500).json({ message: "Failed to fetch delivery slots" });
+    }
+  });
+
+  // Admin delivery zone management
+  app.post('/api/admin/delivery-zones', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const zone = await storage.createDeliveryZone(req.body);
+      res.status(201).json(zone);
+    } catch (error) {
+      console.error("Error creating delivery zone:", error);
+      res.status(500).json({ message: "Failed to create delivery zone" });
+    }
+  });
+
+  app.patch('/api/admin/delivery-zones/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const zone = await storage.updateDeliveryZone(id, req.body);
+      if (!zone) {
+        return res.status(404).json({ message: "Delivery zone not found" });
+      }
+      res.json(zone);
+    } catch (error) {
+      console.error("Error updating delivery zone:", error);
+      res.status(500).json({ message: "Failed to update delivery zone" });
+    }
+  });
+
+  app.delete('/api/admin/delivery-zones/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteDeliveryZone(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting delivery zone:", error);
+      res.status(500).json({ message: "Failed to delete delivery zone" });
+    }
+  });
+
+  // =====================================================
+  // PROMO CODES
+  // =====================================================
+
+  app.post('/api/promo-codes/validate', isAuthenticated, async (req: any, res) => {
+    try {
+      const { code, orderTotal } = req.body;
+      const userId = req.user.id;
+
+      if (!code) {
+        return res.status(400).json({ message: "Promo code is required" });
+      }
+
+      const result = await storage.validatePromoCode(code, userId, orderTotal || 0);
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating promo code:", error);
+      res.status(500).json({ message: "Failed to validate promo code" });
+    }
+  });
+
+  // Admin promo code management
+  app.get('/api/admin/promo-codes', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const promoCodes = await storage.getPromoCodes();
+      res.json(promoCodes);
+    } catch (error) {
+      console.error("Error fetching promo codes:", error);
+      res.status(500).json({ message: "Failed to fetch promo codes" });
+    }
+  });
+
+  app.post('/api/admin/promo-codes', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const promo = await storage.createPromoCode(req.body);
+      res.status(201).json(promo);
+    } catch (error) {
+      console.error("Error creating promo code:", error);
+      res.status(500).json({ message: "Failed to create promo code" });
+    }
+  });
+
+  app.patch('/api/admin/promo-codes/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const promo = await storage.updatePromoCode(id, req.body);
+      if (!promo) {
+        return res.status(404).json({ message: "Promo code not found" });
+      }
+      res.json(promo);
+    } catch (error) {
+      console.error("Error updating promo code:", error);
+      res.status(500).json({ message: "Failed to update promo code" });
+    }
+  });
+
+  app.delete('/api/admin/promo-codes/:id', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePromoCode(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting promo code:", error);
+      res.status(500).json({ message: "Failed to delete promo code" });
+    }
+  });
+
+  // =====================================================
+  // WISHLIST (works for guests like cart)
+  // =====================================================
+
+  app.get('/api/wishlist', async (req: any, res) => {
+    try {
+      // Use authenticated user ID or default guest ID
+      const userId = req.user?.id || 'guest-user';
+      const wishlist = await storage.getWishlist(userId);
+      res.json(wishlist);
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch wishlist" });
+    }
+  });
+
+  // Batch endpoint to get all wishlist product IDs (reduces N calls to 1)
+  app.get('/api/wishlist/product-ids', async (req: any, res) => {
+    try {
+      // Use authenticated user ID or default guest ID
+      const userId = req.user?.id || 'guest-user';
+      const wishlist = await storage.getWishlist(userId);
+      const productIds = wishlist.map((item: any) => item.productId);
+      res.json({ productIds });
+    } catch (error) {
+      console.error("Error fetching wishlist product IDs:", error);
+      res.status(500).json({ message: "Failed to fetch wishlist product IDs" });
+    }
+  });
+
+  app.post('/api/wishlist/:productId', async (req: any, res) => {
+    try {
+      // Use authenticated user ID or default guest ID
+      const userId = req.user?.id || 'guest-user';
+      const productId = parseInt(req.params.productId);
+      const item = await storage.addToWishlist(userId, productId);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error adding to wishlist:", error);
+      res.status(500).json({ message: "Failed to add to wishlist" });
+    }
+  });
+
+  app.delete('/api/wishlist/:productId', async (req: any, res) => {
+    try {
+      // Use authenticated user ID or default guest ID
+      const userId = req.user?.id || 'guest-user';
+      const productId = parseInt(req.params.productId);
+      await storage.removeFromWishlist(userId, productId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing from wishlist:", error);
+      res.status(500).json({ message: "Failed to remove from wishlist" });
+    }
+  });
+
+  app.get('/api/wishlist/:productId/check', async (req: any, res) => {
+    try {
+      // Use authenticated user ID or default guest ID
+      const userId = req.user?.id || 'guest-user';
+      const productId = parseInt(req.params.productId);
+      const isInWishlist = await storage.isInWishlist(userId, productId);
+      res.json({ inWishlist: isInWishlist });
+    } catch (error) {
+      console.error("Error checking wishlist:", error);
+      res.status(500).json({ message: "Failed to check wishlist" });
+    }
+  });
+
+  // =====================================================
+  // REVIEWS
+  // =====================================================
+
+  app.get('/api/products/:id/reviews', async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const reviews = await storage.getProductReviews(productId);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching product reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  app.get('/api/products/:id/rating', async (req, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const rating = await storage.getProductRating(productId);
+      res.json(rating);
+    } catch (error) {
+      console.error("Error fetching product rating:", error);
+      res.status(500).json({ message: "Failed to fetch rating" });
+    }
+  });
+
+  app.post('/api/products/:id/reviews', isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      const review = await storage.createReview({
+        userId,
+        productId,
+        rating: req.body.rating,
+        title: req.body.title,
+        comment: req.body.comment,
+        orderId: req.body.orderId,
+      });
+
+      res.status(201).json(review);
+    } catch (error) {
+      console.error("Error creating review:", error);
+      res.status(500).json({ message: "Failed to create review" });
+    }
+  });
+
+  // =====================================================
+  // LOYALTY POINTS
+  // =====================================================
+
+  app.get('/api/loyalty/balance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const balance = await storage.getUserLoyaltyBalance(userId);
+      res.json({ balance });
+    } catch (error) {
+      console.error("Error fetching loyalty balance:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty balance" });
+    }
+  });
+
+  app.get('/api/loyalty/transactions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const transactions = await storage.getLoyaltyTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching loyalty transactions:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty transactions" });
+    }
+  });
+
+  // =====================================================
+  // ADMIN ANALYTICS
+  // =====================================================
+
+  app.get('/api/admin/stats', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getOrderStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching order stats:", error);
+      res.status(500).json({ message: "Failed to fetch order stats" });
+    }
+  });
+
+  app.get('/api/admin/analytics', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default: last 30 days
+      const endDate = req.query.endDate
+        ? new Date(req.query.endDate as string)
+        : new Date();
+
+      const analytics = await storage.getSalesAnalytics(startDate, endDate);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching sales analytics:", error);
+      res.status(500).json({ message: "Failed to fetch sales analytics" });
+    }
+  });
+
+  app.get('/api/admin/top-products', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const topProducts = await storage.getTopProducts(limit);
+      res.json(topProducts);
+    } catch (error) {
+      console.error("Error fetching top products:", error);
+      res.status(500).json({ message: "Failed to fetch top products" });
+    }
+  });
+
+  app.get('/api/admin/low-stock', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const threshold = req.query.threshold ? parseInt(req.query.threshold as string) : 10;
+      const products = await storage.getLowStockProducts(threshold);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching low stock products:", error);
+      res.status(500).json({ message: "Failed to fetch low stock products" });
     }
   });
 

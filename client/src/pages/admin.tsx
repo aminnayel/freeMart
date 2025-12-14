@@ -12,12 +12,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
     Search, Plus, Edit, Trash2, AlertTriangle, Bell, Package, Grid,
-    ChevronRight, ShoppingBag, TrendingUp, RefreshCcw, ClipboardList, MoreVertical
+    ChevronRight, ShoppingBag, TrendingUp, RefreshCcw, ClipboardList, MoreVertical,
+    BarChart3, Tag, Megaphone
 } from "lucide-react";
 import type { Product, Category } from "@shared/schema";
 import AdminCategories from "./admin/categories";
 import AdminOrders from "./admin/orders";
 import AdminLogs from "./admin/logs";
+import AdminAnalytics from "./admin/analytics";
+import AdminPromoCodes from "./admin/promo-codes";
+import AdminOffers from "./admin/offers";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -26,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-type TabType = 'dashboard' | 'products' | 'categories' | 'orders' | 'notifications' | 'logs';
+type TabType = 'dashboard' | 'products' | 'categories' | 'orders' | 'notifications' | 'logs' | 'analytics' | 'promo-codes' | 'offers';
 
 export default function Admin() {
     const { toast } = useToast();
@@ -257,9 +261,12 @@ export default function Admin() {
     // Tab configuration
     const tabs: { id: TabType; label: string; icon: React.ElementType; badge?: number }[] = [
         { id: 'dashboard', label: isRTL ? 'الرئيسية' : 'Dashboard', icon: TrendingUp },
+        { id: 'analytics', label: isRTL ? 'التحليلات' : 'Analytics', icon: BarChart3 },
         { id: 'products', label: isRTL ? 'المنتجات' : 'Products', icon: Package },
         { id: 'orders', label: isRTL ? 'الطلبات' : 'Orders', icon: ShoppingBag, badge: stats.pendingOrders },
         { id: 'categories', label: isRTL ? 'الأقسام' : 'Categories', icon: Grid },
+        { id: 'offers', label: isRTL ? 'العروض' : 'Offers', icon: Megaphone },
+        { id: 'promo-codes', label: isRTL ? 'الخصومات' : 'Promos', icon: Tag },
         { id: 'notifications', label: isRTL ? 'الإشعارات' : 'Notifications', icon: Bell },
         { id: 'logs', label: isRTL ? 'السجل' : 'Logs', icon: ClipboardList },
     ];
@@ -750,6 +757,15 @@ export default function Admin() {
 
                 {/* Logs */}
                 {activeTab === 'logs' && <AdminLogs />}
+
+                {/* Analytics */}
+                {activeTab === 'analytics' && <AdminAnalytics />}
+
+                {/* Promo Codes */}
+                {activeTab === 'promo-codes' && <AdminPromoCodes />}
+
+                {/* Offers */}
+                {activeTab === 'offers' && <AdminOffers />}
             </div>
 
             {/* Add/Edit Dialog */}

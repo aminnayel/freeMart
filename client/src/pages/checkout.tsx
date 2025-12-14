@@ -11,11 +11,38 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { CreditCard, MapPin, Banknote, ShoppingBag, CheckCircle2, Package, ArrowRight, ArrowLeft, Home, Plus, ChevronRight, User, Truck, Shield, Receipt } from "lucide-react";
+import { CreditCard, MapPin, Banknote, ShoppingBag, CheckCircle2, Package, ArrowRight, ArrowLeft, Home, Plus, ChevronRight, User, Truck, Shield, Receipt, Clock, Tag, Loader2 } from "lucide-react";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronUp } from "lucide-react";
 import { translateContent } from "@/lib/translator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface DeliveryZone {
+  id: number;
+  name: string;
+  englishName: string | null;
+  deliveryFee: string;
+  minimumOrder: string;
+  estimatedMinutes: number;
+  isActive: boolean;
+}
+
+interface DeliverySlot {
+  id: number;
+  startTime: string;
+  endTime: string;
+  maxOrders: number;
+  surcharge: string;
+  isActive: boolean;
+}
+
+interface PromoValidation {
+  valid: boolean;
+  discount: number;
+  message: string;
+  promoCode?: any;
+}
 
 export default function Checkout() {
   const [, setLocation] = useLocation();
@@ -29,6 +56,16 @@ export default function Checkout() {
     queryKey: ["/api/cart"],
   });
 
+  // Fetch delivery zones
+  const { data: deliveryZones = [] } = useQuery<DeliveryZone[]>({
+    queryKey: ["/api/delivery-zones"],
+  });
+
+  // Fetch delivery slots
+  const { data: deliverySlots = [] } = useQuery<DeliverySlot[]>({
+    queryKey: ["/api/delivery-slots"],
+  });
+
   const [deliveryType, setDeliveryType] = useState<'saved' | 'new'>('saved');
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [city, setCity] = useState("");
@@ -37,11 +74,25 @@ export default function Checkout() {
   const [notes, setNotes] = useState("");
   const [saveAddress, setSaveAddress] = useState(true);
 
+  // New state for delivery zones, slots, and promo
+  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValidation, setPromoValidation] = useState<PromoValidation | null>(null);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+
   const getProductName = (product: any) => {
     if (i18n.language === 'en' && product.englishName) {
       return product.englishName;
     }
     return translateContent(product.name, i18n.language);
+  };
+
+  const getZoneName = (zone: DeliveryZone) => {
+    if (i18n.language === 'en' && zone.englishName) {
+      return zone.englishName;
+    }
+    return zone.name;
   };
 
   // Initialize with user data
@@ -57,6 +108,13 @@ export default function Checkout() {
       }
     }
   }, [user]);
+
+  // Auto-select first zone if available
+  useEffect(() => {
+    if (deliveryZones.length > 0 && !selectedZoneId) {
+      setSelectedZoneId(deliveryZones[0].id);
+    }
+  }, [deliveryZones, selectedZoneId]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -74,13 +132,63 @@ export default function Checkout() {
     },
   });
 
+  // Calculate totals
+  const subtotal = cartItems.reduce(
+    (sum: number, item: any) => sum + parseFloat(item.product.price) * item.quantity,
+    0
+  );
+
+  const selectedZone = deliveryZones.find(z => z.id === selectedZoneId);
+  const selectedSlot = deliverySlots.find(s => s.id === selectedSlotId);
+
+  const deliveryFee = selectedZone ? parseFloat(selectedZone.deliveryFee) : 0;
+  const slotSurcharge = selectedSlot ? parseFloat(selectedSlot.surcharge) : 0;
+  const promoDiscount = promoValidation?.valid ? promoValidation.discount : 0;
+
+  const total = subtotal + deliveryFee + slotSurcharge - promoDiscount;
+  const minimumOrder = selectedZone ? parseFloat(selectedZone.minimumOrder) : 0;
+  const canPlaceOrder = subtotal >= minimumOrder;
+
+  // Validate promo code
+  const validatePromoCode = async () => {
+    if (!promoCode.trim()) return;
+
+    setIsValidatingPromo(true);
+    try {
+      const res = await fetch("/api/promo-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ code: promoCode, orderTotal: subtotal }),
+      });
+      const result = await res.json();
+      setPromoValidation(result);
+
+      if (result.valid) {
+        toast({
+          title: isRTL ? "تم التطبيق!" : "Applied!",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: isRTL ? "كود غير صالح" : "Invalid Code",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: isRTL ? "خطأ" : "Error",
+        description: isRTL ? "فشل التحقق من الكود" : "Failed to validate code",
+        variant: "destructive",
+      });
+    } finally {
+      setIsValidatingPromo(false);
+    }
+  };
+
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      const totalAmount = cartItems.reduce(
-        (sum: number, item: any) => sum + parseFloat(item.product.price) * item.quantity,
-        0
-      );
-
       const orderItems = cartItems.map((item: any) => ({
         productId: item.productId,
         productName: item.product.name,
@@ -95,12 +203,19 @@ export default function Checkout() {
         credentials: "include",
         body: JSON.stringify({
           orderData: {
-            totalAmount: totalAmount.toFixed(2),
+            totalAmount: total.toFixed(2),
+            subtotal: subtotal.toFixed(2),
+            deliveryFee: deliveryFee.toFixed(2),
+            discount: promoDiscount.toFixed(2),
             paymentMethod,
+            paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
             deliveryAddress: deliveryType === 'saved' ? user?.deliveryAddress : deliveryAddress,
             city: deliveryType === 'saved' ? user?.city : city,
             postalCode: deliveryType === 'saved' ? user?.postalCode : postalCode,
             phoneNumber: user?.phoneNumber,
+            deliveryZoneId: selectedZoneId,
+            deliverySlotId: selectedSlotId,
+            promoCodeId: promoValidation?.promoCode?.id || null,
             notes,
             status: "pending",
           },
@@ -131,11 +246,6 @@ export default function Checkout() {
     },
   });
 
-  const total = cartItems.reduce(
-    (sum: number, item: any) => sum + parseFloat(item.product.price) * item.quantity,
-    0
-  );
-
   const totalItems = cartItems.length;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,6 +271,17 @@ export default function Checkout() {
         title: t('missing_info'),
         description: t('phone_number_missing'),
         variant: "destructive"
+      });
+      return;
+    }
+
+    if (!canPlaceOrder) {
+      toast({
+        title: isRTL ? "الحد الأدنى للطلب" : "Minimum Order",
+        description: isRTL
+          ? `الحد الأدنى للطلب ${minimumOrder} جنيه لهذه المنطقة`
+          : `Minimum order for this zone is ${minimumOrder} EGP`,
+        variant: "destructive",
       });
       return;
     }
@@ -230,7 +351,95 @@ export default function Checkout() {
           {/* Form Section - Left Column */}
           <div className="lg:col-span-8 space-y-6 lg:space-y-8 pb-40 lg:pb-8">
 
-            {/* Step 1: Delivery Address */}
+            {/* Step 1: Delivery Zone Selection */}
+            <Card className="border-0 shadow-md lg:shadow-lg bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden p-5 lg:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Truck className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg lg:text-xl font-bold">{isRTL ? 'منطقة التوصيل' : 'Delivery Zone'}</h2>
+                  <p className="text-sm text-muted-foreground">{isRTL ? 'اختر منطقتك' : 'Select your delivery area'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {deliveryZones.map((zone) => (
+                  <div
+                    key={zone.id}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedZoneId === zone.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-transparent bg-muted/30 hover:bg-muted/50'
+                      }`}
+                    onClick={() => setSelectedZoneId(zone.id)}
+                  >
+                    <div className="font-semibold text-sm mb-1">{getZoneName(zone)}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Truck className="w-3 h-3" />
+                      {parseFloat(zone.deliveryFee) > 0
+                        ? `${zone.deliveryFee} ${isRTL ? 'جنيه' : 'EGP'}`
+                        : (isRTL ? 'مجاناً' : 'Free')
+                      }
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      ~{zone.estimatedMinutes} {isRTL ? 'دقيقة' : 'min'}
+                    </div>
+                    {parseFloat(zone.minimumOrder) > 0 && (
+                      <div className="text-xs text-orange-600 mt-1">
+                        {isRTL ? 'حد أدنى' : 'Min'}: {zone.minimumOrder}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {selectedZone && subtotal < minimumOrder && (
+                <div className="mt-4 p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-700 dark:text-orange-300 text-sm flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  {isRTL
+                    ? `أضف ${(minimumOrder - subtotal).toFixed(0)} جنيه للوصول للحد الأدنى`
+                    : `Add ${(minimumOrder - subtotal).toFixed(0)} EGP to reach minimum order`
+                  }
+                </div>
+              )}
+            </Card>
+
+            {/* Step 2: Delivery Time Slot */}
+            <Card className="border-0 shadow-md lg:shadow-lg bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden p-5 lg:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg lg:text-xl font-bold">{isRTL ? 'موعد التوصيل' : 'Delivery Time'}</h2>
+                  <p className="text-sm text-muted-foreground">{isRTL ? 'اختر وقت مناسب' : 'Choose a convenient time'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {deliverySlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSlotId === slot.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-transparent bg-muted/30 hover:bg-muted/50'
+                      }`}
+                    onClick={() => setSelectedSlotId(slot.id)}
+                  >
+                    <div className="font-semibold text-sm mb-1" dir="ltr">
+                      {slot.startTime} - {slot.endTime}
+                    </div>
+                    {parseFloat(slot.surcharge) > 0 && (
+                      <div className="text-xs text-orange-600">
+                        +{slot.surcharge} {isRTL ? 'جنيه' : 'EGP'}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Step 3: Delivery Address */}
             <Card className="border-0 shadow-md lg:shadow-lg bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden p-5 lg:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -336,7 +545,62 @@ export default function Checkout() {
               </div>
             </Card>
 
-            {/* Step 2: Payment Method */}
+            {/* Step 4: Promo Code */}
+            <Card className="border-0 shadow-md lg:shadow-lg bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden p-5 lg:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg lg:text-xl font-bold">{isRTL ? 'كود الخصم' : 'Promo Code'}</h2>
+                  <p className="text-sm text-muted-foreground">{isRTL ? 'أدخل كود الخصم إن وجد' : 'Enter promo code if you have one'}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Input
+                  value={promoCode}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value.toUpperCase());
+                    setPromoValidation(null);
+                  }}
+                  placeholder={isRTL ? "أدخل الكود" : "Enter code"}
+                  className="bg-background rounded-xl h-12 flex-1 uppercase"
+                />
+                <Button
+                  onClick={validatePromoCode}
+                  disabled={!promoCode.trim() || isValidatingPromo}
+                  className="h-12 px-6 rounded-xl"
+                >
+                  {isValidatingPromo ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    isRTL ? 'تطبيق' : 'Apply'
+                  )}
+                </Button>
+              </div>
+
+              {promoValidation && (
+                <div className={`mt-4 p-3 rounded-xl text-sm flex items-center gap-2 ${promoValidation.valid
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                  }`}>
+                  {promoValidation.valid ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : (
+                    <Shield className="w-4 h-4" />
+                  )}
+                  {promoValidation.message}
+                  {promoValidation.valid && (
+                    <span className="ms-auto font-bold">
+                      -{promoValidation.discount.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}
+                    </span>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {/* Step 5: Payment Method */}
             <Card className="border-0 shadow-md lg:shadow-lg bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden p-5 lg:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -392,12 +656,13 @@ export default function Checkout() {
                       <div className="font-bold">{t('credit_card')}</div>
                       <div className="text-xs text-muted-foreground">{t('pay_securely_online')}</div>
                     </div>
+                    <Badge variant="secondary" className="text-xs">{isRTL ? 'قريباً' : 'Coming Soon'}</Badge>
                   </div>
                 </div>
               </RadioGroup>
             </Card>
 
-            {/* Step 3: Contact Info */}
+            {/* Step 6: Contact Info */}
             <Card className="border-0 shadow-md lg:shadow-lg bg-white dark:bg-slate-900 rounded-2xl lg:rounded-3xl overflow-hidden p-5 lg:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -436,7 +701,7 @@ export default function Checkout() {
                 </div>
 
                 {/* Order Items */}
-                <div className="space-y-4 mb-6 max-h-[250px] overflow-y-auto">
+                <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto">
                   {cartItems.map((item: any) => (
                     <div key={item.id} className="flex gap-4">
                       <div className="w-14 h-14 rounded-xl bg-muted overflow-hidden flex-shrink-0">
@@ -465,16 +730,30 @@ export default function Checkout() {
                   ))}
                 </div>
 
-                <div className="space-y-5 mb-8 pt-4 border-t">
-                  <div className="flex justify-between text-base">
+                <div className="space-y-4 mb-8 pt-4 border-t">
+                  <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{t('subtotal')} ({totalItems} {isRTL ? 'منتج' : 'items'})</span>
-                    <span className="font-semibold">{total.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}</span>
+                    <span className="font-semibold">{subtotal.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}</span>
                   </div>
-                  <div className="flex justify-between text-base">
-                    <span className="text-muted-foreground">{t('shipping')}</span>
-                    <span className="text-green-600 font-semibold">{t('free')}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{isRTL ? 'التوصيل' : 'Delivery'}</span>
+                    <span className={`font-semibold ${deliveryFee === 0 ? 'text-green-600' : ''}`}>
+                      {deliveryFee === 0 ? (isRTL ? 'مجاناً' : 'Free') : `${deliveryFee.toFixed(0)} ${isRTL ? 'جنيه' : 'EGP'}`}
+                    </span>
                   </div>
-                  <div className="border-t-2 border-dashed pt-5 flex justify-between">
+                  {slotSurcharge > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{isRTL ? 'رسوم الوقت' : 'Time Slot'}</span>
+                      <span className="font-semibold">{slotSurcharge.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}</span>
+                    </div>
+                  )}
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>{isRTL ? 'خصم الكود' : 'Promo Discount'}</span>
+                      <span className="font-semibold">-{promoDiscount.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}</span>
+                    </div>
+                  )}
+                  <div className="border-t-2 border-dashed pt-4 flex justify-between">
                     <span className="text-xl font-bold">{t('total')}</span>
                     <span className="text-2xl font-bold text-primary">
                       {total.toFixed(0)} <span className="text-base font-medium">{isRTL ? 'جنيه' : 'EGP'}</span>
@@ -485,13 +764,19 @@ export default function Checkout() {
                 <Button
                   className="w-full h-14 text-lg font-semibold shadow-xl hover:shadow-primary/30 transition-all rounded-2xl group"
                   onClick={handleSubmit}
-                  disabled={createOrderMutation.isPending}
+                  disabled={createOrderMutation.isPending || !canPlaceOrder}
                 >
                   {createOrderMutation.isPending ? t('placing_order') : t('place_order')}
                   {!createOrderMutation.isPending && (
                     <ArrowRight className={`w-6 h-6 ms-3 group-hover:translate-x-2 transition-transform ${isRTL ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
                   )}
                 </Button>
+
+                {!canPlaceOrder && (
+                  <p className="text-center text-sm text-orange-600 mt-3">
+                    {isRTL ? `الحد الأدنى للطلب ${minimumOrder} جنيه` : `Minimum order: ${minimumOrder} EGP`}
+                  </p>
+                )}
               </Card>
 
               {/* Trust Badges */}
@@ -568,11 +853,23 @@ export default function Checkout() {
                 <div className="border-t pt-4 mt-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{t('subtotal')}</span>
-                    <span className="font-medium">{total.toFixed(0)}</span>
+                    <span className="font-medium">{subtotal.toFixed(0)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{t('delivery_fee')}</span>
-                    <span className="font-medium text-green-600">{t('free')}</span>
+                    <span className="text-muted-foreground">{isRTL ? 'التوصيل' : 'Delivery'}</span>
+                    <span className={`font-medium ${deliveryFee === 0 ? 'text-green-600' : ''}`}>
+                      {deliveryFee === 0 ? (isRTL ? 'مجاناً' : 'Free') : deliveryFee.toFixed(0)}
+                    </span>
+                  </div>
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>{isRTL ? 'خصم' : 'Discount'}</span>
+                      <span className="font-medium">-{promoDiscount.toFixed(0)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-bold pt-2 border-t">
+                    <span>{t('total')}</span>
+                    <span className="text-primary">{total.toFixed(0)} {isRTL ? 'جنيه' : 'EGP'}</span>
                   </div>
                 </div>
               </div>
@@ -581,7 +878,7 @@ export default function Checkout() {
           <Button
             className="flex-1 h-12 text-base font-bold rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary text-primary-foreground"
             onClick={handleSubmit}
-            disabled={createOrderMutation.isPending}
+            disabled={createOrderMutation.isPending || !canPlaceOrder}
           >
             {createOrderMutation.isPending ? t('placing_order') : t('place_order')}
             {!createOrderMutation.isPending && <ArrowRight className={`w-5 h-5 ms-2 ${isRTL ? 'rotate-180' : ''}`} />}
