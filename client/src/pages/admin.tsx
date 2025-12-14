@@ -63,6 +63,7 @@ export default function Admin() {
         unit: "unit_piece",
         imageUrl: "",
         isAvailable: true,
+        stockValidationEnabled: true, // Whether to check stock during checkout
     });
 
     const { data: products = [], refetch: refetchProducts } = useQuery<Product[]>({
@@ -193,6 +194,7 @@ export default function Admin() {
             unit: "unit_piece",
             imageUrl: "",
             isAvailable: true,
+            stockValidationEnabled: true,
         });
         setEditingProduct(null);
     };
@@ -215,6 +217,7 @@ export default function Admin() {
             unit: product.unit || "unit_piece",
             imageUrl: product.imageUrl || "",
             isAvailable: product.isAvailable ?? true,
+            stockValidationEnabled: product.stockValidationEnabled ?? true,
         });
         setIsAddEditOpen(true);
     };
@@ -866,6 +869,26 @@ export default function Admin() {
                                 className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
                             />
                             <Label htmlFor="isAvailable">{t('product_available')}</Label>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="stockValidationEnabled" className="text-sm font-medium">
+                                    {isRTL ? 'التحقق من المخزون' : 'Stock Validation'}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {isRTL
+                                        ? 'منع الطلب إذا كانت الكمية أكثر من المخزون'
+                                        : 'Prevent orders exceeding available stock'}
+                                </p>
+                            </div>
+                            <input
+                                type="checkbox"
+                                id="stockValidationEnabled"
+                                checked={formData.stockValidationEnabled}
+                                onChange={(e) => setFormData({ ...formData, stockValidationEnabled: e.target.checked })}
+                                className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
                         </div>
 
                         <DialogFooter className="pt-4">

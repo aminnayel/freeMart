@@ -57,9 +57,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
+          // Clone immediately before any other operations
           if (response.ok) {
-            const cache = caches.open(RUNTIME_CACHE);
-            cache.then((c) => c.put(request, response.clone()));
+            const responseToCache = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseToCache);
+            });
           }
           return response;
         })
@@ -81,9 +84,12 @@ self.addEventListener("fetch", (event) => {
 
       return fetch(request)
         .then((response) => {
+          // Clone immediately before any other operations
           if (response.ok) {
-            const cache = caches.open(RUNTIME_CACHE);
-            cache.then((c) => c.put(request, response.clone()));
+            const responseToCache = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseToCache);
+            });
           }
           return response;
         })
@@ -98,23 +104,45 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener('push', function (event) {
   if (event.data) {
     const data = event.data.json();
+
+    // Use absolute URLs for icons
+    const baseUrl = self.location.origin;
+    const iconUrl = `${baseUrl}/logo.png`;
+    const badgeUrl = `${baseUrl}/logo.png`;
+
+    // Determine if this is an important notification (stock alert, order update)
+    const isImportant = data.type === 'stock_alert' || data.type === 'order_update';
+
     const options = {
-      body: data.body || 'تحديث جديد من خضار آند فاكهة!',
-      icon: '/logo.png',
-      badge: '/logo.png',
-      vibrate: [100, 50, 100],
+      body: data.body || 'New update from your store!',
+      icon: data.icon || iconUrl,
+      badge: data.badge || badgeUrl,
+      image: data.image || null, // Rich notification image (Android)
+      vibrate: [100, 50, 100, 50, 100],
+      timestamp: Date.now(),
+      tag: data.tag || 'general-notification', // Group similar notifications
+      renotify: data.renotify !== false, // Vibrate again for same tag updates
+      requireInteraction: isImportant, // Keep important notifications visible
+      silent: data.silent || false,
       data: {
         dateOfArrival: Date.now(),
-        primaryKey: '2',
-        url: data.link || '/'
+        url: data.link || '/',
+        type: data.type || 'general',
+        productId: data.productId || null,
       },
-      actions: [
-        { action: 'explore', title: 'عرض التفاصيل', icon: '/logo.png' },
-        { action: 'close', title: 'إغلاق', icon: '/logo.png' },
+      actions: data.actions || [
+        { action: 'open', title: data.language === 'ar' ? 'عرض التفاصيل' : 'View Details' },
+        { action: 'close', title: data.language === 'ar' ? 'إغلاق' : 'Close' },
       ]
     };
+
+    // Remove null values to prevent errors
+    if (!options.image) delete options.image;
+
+    const title = data.title || 'Store Notification';
+
     event.waitUntil(
-      self.registration.showNotification(data.title || 'خضار آند فاكهة', options)
+      self.registration.showNotification(title, options)
     );
   }
 });

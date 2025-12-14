@@ -441,11 +441,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
 
-      {/* Mobile Bottom Navigation */}
-      {/* Mobile Bottom Navigation - Glassmorphic Premium */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-2xl border-t border-white/10 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50 safe-area-pb no-select transition-all duration-300">
-        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-50"></div>
-        <div className="flex justify-evenly items-center h-[3.75rem] px-2">
+      {/* Mobile Bottom Navigation - Premium Glassmorphic */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50"
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        {/* Frosted glass background */}
+        <div className="absolute inset-0 bg-background/70 backdrop-blur-xl border-t border-white/20 dark:border-white/5" />
+
+        {/* Subtle top highlight */}
+        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+        {/* Navigation items */}
+        <div className="relative flex justify-evenly items-center h-16 px-1">
           {navLinks.map((link) => {
             const isActive = location === link.href;
             const isShopLink = link.href === '/';
@@ -466,54 +476,127 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link key={link.href} href={link.href}>
                 <a
                   onClick={handleNavClick}
-                  className={`flex flex-col items-center justify-center gap-1 w-16 py-1 transition-all relative group ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                  className="flex flex-col items-center justify-center gap-0.5 w-16 h-14 relative transition-all duration-200 active:scale-90"
                 >
-                  <div className={`relative p-1.5 rounded-2xl transition-all duration-300 ${isActive ? 'bg-primary/10 -translate-y-1' : 'group-active:scale-95'}`}>
-                    <link.icon className={`w-6 h-6 transition-all duration-300 ${isActive ? 'fill-primary stroke-primary' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
+                  {/* Active pill background */}
+                  <div
+                    className={cn(
+                      "absolute inset-x-2 top-1 bottom-4 rounded-2xl transition-all duration-300 ease-out",
+                      isActive
+                        ? "bg-primary/15 dark:bg-primary/20 scale-100 opacity-100"
+                        : "scale-75 opacity-0"
+                    )}
+                  />
+
+                  {/* Icon container */}
+                  <div
+                    className={cn(
+                      "relative z-10 p-1 transition-all duration-200",
+                      isActive && "-translate-y-0.5"
+                    )}
+                  >
+                    <link.icon
+                      className={cn(
+                        "w-[22px] h-[22px] transition-all duration-200",
+                        isActive
+                          ? "text-primary stroke-[2.5px]"
+                          : "text-muted-foreground stroke-[1.75px]"
+                      )}
+                    />
+
+                    {/* Badge */}
                     {link.badge !== undefined && link.badge > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white shadow-sm ring-2 ring-background animate-in zoom-in">
+                      <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white shadow-sm ring-2 ring-background px-1 animate-in zoom-in-75 duration-200">
                         {link.badge > 9 ? '9+' : link.badge}
                       </span>
                     )}
                   </div>
-                  <span className={`text-[10px] font-medium transition-all duration-300 ${isActive ? 'opacity-100 font-bold' : 'opacity-70'}`}>
+
+                  {/* Label */}
+                  <span
+                    className={cn(
+                      "relative z-10 text-[10px] font-medium transition-all duration-200",
+                      isActive
+                        ? "text-primary font-semibold"
+                        : "text-muted-foreground"
+                    )}
+                  >
                     {link.label}
                   </span>
-                  {isActive && (
-                    <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-primary" />
-                  )}
                 </a>
               </Link>
             );
           })}
+
           {/* Admin Link - Only for admins */}
           {user?.isAdmin && (
             <Link href="/admin">
-              <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1 transition-all relative group ${location.startsWith('/admin') ? 'text-orange-600' : 'text-muted-foreground hover:text-foreground'}`}>
-                <div className={`relative p-1.5 rounded-2xl transition-all duration-300 ${location.startsWith('/admin') ? 'bg-orange-500/10 -translate-y-1' : 'group-active:scale-95'}`}>
-                  <LayoutDashboard className={`w-6 h-6 transition-all duration-300 ${location.startsWith('/admin') ? 'text-orange-600' : ''}`} strokeWidth={location.startsWith('/admin') ? 2.5 : 2} />
+              <a className="flex flex-col items-center justify-center gap-0.5 w-16 h-14 relative transition-all duration-200 active:scale-90">
+                <div
+                  className={cn(
+                    "absolute inset-x-2 top-1 bottom-4 rounded-2xl transition-all duration-300 ease-out",
+                    location.startsWith('/admin')
+                      ? "bg-orange-500/15 scale-100 opacity-100"
+                      : "scale-75 opacity-0"
+                  )}
+                />
+                <div className={cn(
+                  "relative z-10 p-1 transition-all duration-200",
+                  location.startsWith('/admin') && "-translate-y-0.5"
+                )}>
+                  <LayoutDashboard
+                    className={cn(
+                      "w-[22px] h-[22px] transition-all duration-200",
+                      location.startsWith('/admin')
+                        ? "text-orange-600 stroke-[2.5px]"
+                        : "text-muted-foreground stroke-[1.75px]"
+                    )}
+                  />
                 </div>
-                <span className={`text-[10px] font-medium transition-all duration-300 ${location.startsWith('/admin') ? 'opacity-100 font-bold text-orange-600' : 'opacity-70'}`}>
+                <span className={cn(
+                  "relative z-10 text-[10px] font-medium transition-all duration-200",
+                  location.startsWith('/admin')
+                    ? "text-orange-600 font-semibold"
+                    : "text-muted-foreground"
+                )}>
                   {isRTL ? 'الإدارة' : 'Admin'}
                 </span>
-                {location.startsWith('/admin') && (
-                  <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-orange-600" />
-                )}
               </a>
             </Link>
           )}
+
           {/* Profile Link */}
           <Link href="/profile">
-            <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1 transition-all relative group ${location === '/profile' || location.startsWith('/profile/') ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-              <div className={`relative p-1.5 rounded-2xl transition-all duration-300 ${location === '/profile' || location.startsWith('/profile/') ? 'bg-primary/10 -translate-y-1' : 'group-active:scale-95'}`}>
-                <User className={`w-6 h-6 transition-all duration-300 ${location === '/profile' || location.startsWith('/profile/') ? 'fill-primary stroke-primary' : ''}`} strokeWidth={location === '/profile' || location.startsWith('/profile/') ? 2.5 : 2} />
+            <a className="flex flex-col items-center justify-center gap-0.5 w-16 h-14 relative transition-all duration-200 active:scale-90">
+              <div
+                className={cn(
+                  "absolute inset-x-2 top-1 bottom-4 rounded-2xl transition-all duration-300 ease-out",
+                  (location === '/profile' || location.startsWith('/profile/'))
+                    ? "bg-primary/15 dark:bg-primary/20 scale-100 opacity-100"
+                    : "scale-75 opacity-0"
+                )}
+              />
+              <div className={cn(
+                "relative z-10 p-1 transition-all duration-200",
+                (location === '/profile' || location.startsWith('/profile/')) && "-translate-y-0.5"
+              )}>
+                <User
+                  className={cn(
+                    "w-[22px] h-[22px] transition-all duration-200",
+                    (location === '/profile' || location.startsWith('/profile/'))
+                      ? "text-primary stroke-[2.5px]"
+                      : "text-muted-foreground stroke-[1.75px]"
+                  )}
+                />
               </div>
-              <span className={`text-[10px] font-medium transition-all duration-300 ${location === '/profile' || location.startsWith('/profile/') ? 'opacity-100 font-bold' : 'opacity-70'}`}>
+              <span className={cn(
+                "relative z-10 text-[10px] font-medium transition-all duration-200",
+                (location === '/profile' || location.startsWith('/profile/'))
+                  ? "text-primary font-semibold"
+                  : "text-muted-foreground"
+              )}>
                 {isRTL ? 'حسابي' : 'Profile'}
               </span>
-              {(location === '/profile' || location.startsWith('/profile/')) && (
-                <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-primary" />
-              )}
             </a>
           </Link>
         </div>

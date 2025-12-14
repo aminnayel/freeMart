@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,7 @@ interface ProductCardProps {
     t: (key: string) => string;
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
     product,
     quantity = 0,
     onAddToCart,
@@ -243,6 +243,6 @@ export function ProductCard({
             </div>
         </Card>
     );
-}
+});
 
 export default ProductCard;

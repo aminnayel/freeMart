@@ -32,6 +32,12 @@ export function AutoScrollArea({
     const dragStartScroll = useRef(0);
     const hasDragged = useRef(false); // Track if actual dragging occurred
 
+    // Touch drag state
+    const [isTouching, setIsTouching] = useState(false);
+    const touchStartX = useRef(0);
+    const touchStartScroll = useRef(0);
+    const hasTouchDragged = useRef(false);
+
     // Calculate max scroll based on content width
     useEffect(() => {
         const content = contentRef.current;
@@ -109,7 +115,7 @@ export function AutoScrollArea({
         const container = containerRef.current;
         if (!container) return;
 
-        const delta = e.clientX - dragStartX.current;
+        let delta = e.clientX - dragStartX.current;
 
         // Check if we've moved past the threshold
         if (Math.abs(delta) > DRAG_THRESHOLD) {
@@ -117,8 +123,13 @@ export function AutoScrollArea({
         }
 
         const loopPoint = maxScroll.current;
+        const isRTL = direction === 'rtl';
 
-        // Drag direction is the same for both LTR and RTL - drag left = scroll left
+        // Invert delta for RTL so dragging feels natural
+        if (isRTL) {
+            delta = -delta;
+        }
+
         scrollPosition.current = dragStartScroll.current - delta;
 
         if (scrollPosition.current >= loopPoint) {
@@ -129,7 +140,6 @@ export function AutoScrollArea({
 
         const innerContainer = container.querySelector('.scroll-content') as HTMLElement;
         if (innerContainer) {
-            const isRTL = direction === 'rtl';
             if (isRTL) {
                 innerContainer.style.transform = `translateX(${scrollPosition.current}px)`;
             } else {
@@ -147,12 +157,70 @@ export function AutoScrollArea({
         setIsHovered(false);
     }, []);
 
+    // Touch handlers for mobile swipe support
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        setIsTouching(true);
+        setIsHovered(true);
+        hasTouchDragged.current = false;
+        touchStartX.current = e.touches[0].clientX;
+        touchStartScroll.current = scrollPosition.current;
+    }, []);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (!isTouching) return;
+
+        const container = containerRef.current;
+        if (!container) return;
+
+        const currentX = e.touches[0].clientX;
+        let delta = currentX - touchStartX.current;
+
+        // Check if we've moved past the threshold
+        if (Math.abs(delta) > DRAG_THRESHOLD) {
+            hasTouchDragged.current = true;
+        }
+
+        const loopPoint = maxScroll.current;
+        const isRTL = direction === 'rtl';
+
+        // Invert delta for RTL so swiping feels natural
+        if (isRTL) {
+            delta = -delta;
+        }
+
+        scrollPosition.current = touchStartScroll.current - delta;
+
+        if (scrollPosition.current >= loopPoint) {
+            scrollPosition.current -= loopPoint;
+        } else if (scrollPosition.current < 0) {
+            scrollPosition.current += loopPoint;
+        }
+
+        const innerContainer = container.querySelector('.scroll-content') as HTMLElement;
+        if (innerContainer) {
+            if (isRTL) {
+                innerContainer.style.transform = `translateX(${scrollPosition.current}px)`;
+            } else {
+                innerContainer.style.transform = `translateX(${-scrollPosition.current}px)`;
+            }
+        }
+    }, [isTouching, direction]);
+
+    const handleTouchEnd = useCallback(() => {
+        setIsTouching(false);
+        // Keep isHovered true for a moment to prevent auto-scroll from jumping back
+        setTimeout(() => {
+            setIsHovered(false);
+        }, 100);
+    }, []);
+
     // Block clicks if dragging occurred
     const handleClick = useCallback((e: React.MouseEvent) => {
-        if (hasDragged.current) {
+        if (hasDragged.current || hasTouchDragged.current) {
             e.preventDefault();
             e.stopPropagation();
             hasDragged.current = false;
+            hasTouchDragged.current = false;
         }
     }, []);
 
@@ -165,7 +233,7 @@ export function AutoScrollArea({
         const isRTL = direction === 'rtl';
 
         const interval = setInterval(() => {
-            if (!isHovered && !paused && !isDragging && container && content) {
+            if (!isHovered && !paused && !isDragging && !isTouching && container && content) {
                 const loopPoint = content.offsetWidth + 16;
 
                 // Both LTR and RTL: increment position for consistent visual flow
@@ -189,7 +257,7 @@ export function AutoScrollArea({
         }, intervalMs);
 
         return () => clearInterval(interval);
-    }, [isHovered, paused, isDragging, speed, intervalMs, direction]);
+    }, [isHovered, paused, isDragging, isTouching, speed, intervalMs, direction]);
 
     return (
         <div
@@ -209,10 +277,19 @@ export function AutoScrollArea({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onClickCapture={handleClick}
-            onTouchStart={() => setIsHovered(true)}
-            onTouchEnd={() => setIsHovered(false)}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
         >
-            <div className="scroll-content flex gap-4 min-w-max transition-none">
+            <div
+                className="scroll-content flex gap-4 min-w-max"
+                style={{
+                    willChange: 'transform',
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                }}
+            >
                 {/* First Set */}
                 <div ref={contentRef} className="flex gap-4">
                     {children}
@@ -225,3 +302,4 @@ export function AutoScrollArea({
         </div>
     );
 }
+

@@ -228,14 +228,15 @@ export default function Checkout() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: t('order_placed'),
         description: t('order_placed_desc'),
       });
-      setLocation("/profile");
+      // Redirect to order confirmation page with order ID
+      setLocation(`/order-confirmation/${data.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -346,6 +347,41 @@ export default function Checkout() {
 
       {/* Main Content */}
       <div className="container mx-auto max-w-7xl px-4 lg:px-8 py-6 lg:py-10">
+
+        {/* Step Progress Indicator */}
+        <div className="mb-6 lg:mb-8">
+          <div className="flex items-center justify-between max-w-xl mx-auto px-2">
+            {[
+              { icon: Truck, label: isRTL ? 'المنطقة' : 'Zone', done: !!selectedZoneId },
+              { icon: Clock, label: isRTL ? 'الوقت' : 'Time', done: !!selectedSlotId },
+              { icon: MapPin, label: isRTL ? 'العنوان' : 'Address', done: deliveryType === 'saved' ? !!user?.deliveryAddress : (!!deliveryAddress && !!city) },
+              { icon: CreditCard, label: isRTL ? 'الدفع' : 'Payment', done: !!paymentMethod },
+            ].map((step, idx, arr) => (
+              <div key={idx} className="flex items-center flex-1">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${step.done
+                      ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                      : 'bg-muted text-muted-foreground'
+                    }`}>
+                    {step.done ? (
+                      <CheckCircle2 className="w-5 h-5" />
+                    ) : (
+                      <step.icon className="w-5 h-5" />
+                    )}
+                  </div>
+                  <span className={`text-xs mt-1.5 font-medium ${step.done ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {step.label}
+                  </span>
+                </div>
+                {idx < arr.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-2 transition-colors ${step.done ? 'bg-green-500' : 'bg-muted'
+                    }`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="lg:grid lg:grid-cols-12 lg:gap-10">
 
           {/* Form Section - Left Column */}
@@ -368,8 +404,8 @@ export default function Checkout() {
                   <div
                     key={zone.id}
                     className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedZoneId === zone.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-transparent bg-muted/30 hover:bg-muted/50'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent bg-muted/30 hover:bg-muted/50'
                       }`}
                     onClick={() => setSelectedZoneId(zone.id)}
                   >
@@ -421,8 +457,8 @@ export default function Checkout() {
                   <div
                     key={slot.id}
                     className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSlotId === slot.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-transparent bg-muted/30 hover:bg-muted/50'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-transparent bg-muted/30 hover:bg-muted/50'
                       }`}
                     onClick={() => setSelectedSlotId(slot.id)}
                   >
@@ -582,8 +618,8 @@ export default function Checkout() {
 
               {promoValidation && (
                 <div className={`mt-4 p-3 rounded-xl text-sm flex items-center gap-2 ${promoValidation.valid
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                   }`}>
                   {promoValidation.valid ? (
                     <CheckCircle2 className="w-4 h-4" />

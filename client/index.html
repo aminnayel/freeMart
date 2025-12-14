@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
 
   <meta property="og:title" content="FreshMart - Online Grocery Shopping" />
   <meta property="og:description"
@@ -19,7 +19,10 @@
 
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#ffffff" />
+  <!-- Light mode theme color -->
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <!-- Dark mode theme color - matches dark background -->
+  <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
   <meta name="description"
     content="Shop fresh groceries online with easy delivery. Browse categories, add to cart, and get your groceries delivered to your doorstep." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -31,6 +34,28 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
     rel="stylesheet">
+  <style>
+    /* Disable text selection on mobile for native app feel */
+    @media (max-width: 768px) {
+      body {
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      /* Allow selection in input fields */
+      input,
+      textarea,
+      [contenteditable="true"] {
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        user-select: text;
+      }
+    }
+  </style>
 </head>
 
 <body>
@@ -44,6 +69,49 @@
         });
       });
     }
+
+    // Update theme-color dynamically when theme changes (for next-themes)
+    // These colors match the CSS variables in index.css
+    const LIGHT_THEME_COLOR = '#fdfcfb'; // --background: 40 20% 98%
+    const DARK_THEME_COLOR = '#1e293b';  // --background: 222 35% 16% (approximately)
+
+    const updateThemeColor = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      const themeColor = isDark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR;
+
+      // Update all theme-color meta tags
+      document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
+        meta.setAttribute('content', themeColor);
+      });
+
+      // Also update manifest theme if possible
+      const manifest = document.querySelector('link[rel="manifest"]');
+      if (manifest) {
+        // Force manifest refresh not possible, but theme-color meta will override
+      }
+    };
+
+    // Run immediately in case class is already set (from localStorage by next-themes)
+    if (document.documentElement.classList.contains('dark') || document.documentElement.classList.contains('light')) {
+      updateThemeColor();
+    }
+
+    // Watch for any theme changes via class mutation
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          updateThemeColor();
+        }
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    // Also listen for storage events (theme change from another tab)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'theme') {
+        setTimeout(updateThemeColor, 50);
+      }
+    });
   </script>
 </body>
 

@@ -24,6 +24,7 @@ import { ProductDetailsContent } from "@/components/shop/product-details-content
 import type { Product } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthModal } from "@/components/auth/auth-modal-context";
+import { subscribeToPushNotifications } from "@/lib/push-notifications";
 
 interface WishlistItem {
     id: number;
@@ -53,6 +54,7 @@ export default function Wishlist() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const { user } = useAuth();
     const { openLogin } = useAuthModal();
+    const [notifiedProducts, setNotifiedProducts] = useState<Set<number>>(new Set());
 
     // Fetch wishlist (works for guests too, like cart)
     const { data: wishlistItems = [], isLoading } = useQuery<WishlistItem[]>({
@@ -146,6 +148,61 @@ export default function Wishlist() {
         },
     });
 
+    // Notify Me mutation for out of stock products
+    const notifyMeMutation = useMutation({
+        mutationFn: async (productId: number) => {
+            const res = await fetch("/api/notifications", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ productId }),
+            });
+            if (!res.ok) throw new Error("Failed to subscribe");
+            return { ...await res.json(), productId };
+        },
+        onSuccess: (data) => {
+            setNotifiedProducts(prev => new Set(prev).add(data.productId));
+            if (data.message === "Already subscribed") {
+                toast({ title: isRTL ? 'مشترك بالفعل' : 'Already subscribed', description: isRTL ? 'ستتلقى إشعاراً عند التوفر' : "You'll be notified when available" });
+            } else {
+                toast({ title: isRTL ? 'تم الاشتراك' : 'Subscribed', description: isRTL ? 'سنعلمك عند توفر المنتج' : "We'll notify you when it's back" });
+            }
+        },
+        onError: () => {
+            toast({ title: isRTL ? 'خطأ' : 'Error', description: isRTL ? 'فشل الاشتراك في الإشعارات' : 'Failed to subscribe', variant: "destructive" });
+        },
+    });
+
+    const handleNotifyMe = async (productId: number) => {
+        if (!user) {
+            toast({
+                title: isRTL ? 'يجب تسجيل الدخول' : 'Login required',
+                description: isRTL ? 'سجل دخولك لتفعيل الإشعارات' : 'Please login to enable notifications',
+                variant: "destructive",
+            });
+            openLogin();
+            return;
+        }
+        if ("Notification" in window) {
+            if (Notification.permission === "default") {
+                const result = await Notification.requestPermission();
+                if (result === "granted") {
+                    await subscribeToPushNotifications();
+                }
+            } else if (Notification.permission === "granted") {
+                await subscribeToPushNotifications();
+            } else if (Notification.permission === "denied") {
+                toast({
+                    title: isRTL ? 'الإشعارات محظورة' : 'Notifications blocked',
+                    description: isRTL ? 'قم بتفعيل الإشعارات من إعدادات المتصفح' : 'Enable notifications in browser settings',
+                    variant: "destructive",
+                });
+                return;
+            }
+        }
+        notifyMeMutation.mutate(productId);
+    };
+
     const handleIncrement = (productId: number) => {
         const qty = getCartQuantity(productId);
         updateCartMutation.mutate({ productId, quantity: qty + 1 });
@@ -229,7 +286,7 @@ export default function Wishlist() {
                 <div className="lg:grid lg:grid-cols-12 lg:gap-10">
                     {/* Products Grid - Main Column */}
                     <div className="lg:col-span-8">
-                        <div className="grid grid-cols-3 gap-3 lg:gap-5">
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5">
                             {wishlistItems.map((item) => {
                                 const cartQty = getCartQuantity(item.productId);
                                 const isOutOfStock = !item.product.isAvailable;
@@ -348,24 +405,31 @@ export default function Wishlist() {
                                                         )}
                                                     </Button>
                                                 ) : (
-                                                    <div className="flex items-center justify-between bg-primary rounded-xl h-10 px-1 shadow-sm">
-                                                        <button
+                                                    <div
+                                                        className="flex items-center justify-between bg-primary/10 rounded-xl p-1"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
                                                             onClick={() => handleDecrement(item.productId)}
-                                                            className="w-8 h-8 flex items-center justify-center text-primary-foreground hover:bg-white/20 rounded-lg transition-colors active:scale-90"
                                                             disabled={updateCartMutation.isPending || removeFromCartMutation.isPending}
                                                         >
                                                             <span className="text-lg font-bold">−</span>
-                                                        </button>
-                                                        <span className="text-sm font-bold text-primary-foreground min-w-[2rem] text-center">
+                                                        </Button>
+                                                        <span className="font-bold text-base text-primary min-w-[2rem] text-center">
                                                             {cartQty}
                                                         </span>
-                                                        <button
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
                                                             onClick={() => handleIncrement(item.productId)}
-                                                            className="w-8 h-8 flex items-center justify-center text-primary-foreground hover:bg-white/20 rounded-lg transition-colors active:scale-90"
                                                             disabled={updateCartMutation.isPending}
                                                         >
                                                             <span className="text-lg font-bold">+</span>
-                                                        </button>
+                                                        </Button>
                                                     </div>
                                                 )}
                                             </div>
@@ -448,11 +512,11 @@ export default function Wishlist() {
                                 handleAddToCart={(id) => addToCartMutation.mutate(id)}
                                 handleIncrement={handleIncrement}
                                 handleDecrement={handleDecrement}
-                                handleNotifyMe={() => { }}
-                                notifiedProducts={new Set()}
+                                handleNotifyMe={handleNotifyMe}
+                                notifiedProducts={notifiedProducts}
                                 isRTL={isRTL}
                                 t={t}
-                                isNotifyPending={false}
+                                isNotifyPending={notifyMeMutation.isPending}
                                 isAddPending={addToCartMutation.isPending}
                             />}
                         </div>
@@ -467,11 +531,11 @@ export default function Wishlist() {
                             handleAddToCart={(id) => addToCartMutation.mutate(id)}
                             handleIncrement={handleIncrement}
                             handleDecrement={handleDecrement}
-                            handleNotifyMe={() => { }}
-                            notifiedProducts={new Set()}
+                            handleNotifyMe={handleNotifyMe}
+                            notifiedProducts={notifiedProducts}
                             isRTL={isRTL}
                             t={t}
-                            isNotifyPending={false}
+                            isNotifyPending={notifyMeMutation.isPending}
                             isAddPending={addToCartMutation.isPending}
                         />}
                     </DialogContent>

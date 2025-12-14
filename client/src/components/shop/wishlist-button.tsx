@@ -32,24 +32,31 @@ export default function WishlistButton({
     const queryClient = useQueryClient();
     const { isAuthenticated } = useAuth();
     const { openLogin } = useAuthModal();
+
+    // Use prop directly if provided, otherwise use query result
+    const propProvided = isInWishlistProp !== undefined;
     const [isInWishlist, setIsInWishlist] = useState(isInWishlistProp ?? false);
     const [isAnimating, setIsAnimating] = useState(false);
 
-    // Only check individually if prop not provided
-    const shouldCheckIndividually = isInWishlistProp === undefined;
-    const { data: wishlistCheck, isLoading } = useQuery<{ inWishlist: boolean }>({
+    // Only check individually if prop not provided (skip API call entirely when prop exists)
+    const { data: wishlistCheck, isLoading: checkLoading } = useQuery<{ inWishlist: boolean }>({
         queryKey: [`/api/wishlist/${productId}/check`],
-        enabled: shouldCheckIndividually,
+        enabled: !propProvided, // Disable query if prop is provided
+        staleTime: 1000 * 60 * 5, // Cache for 5 minutes to reduce calls
+        gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
     });
+
+    // Loading state: only show loading if we're actually fetching
+    const isCheckLoading = !propProvided && checkLoading;
 
     useEffect(() => {
         // Prefer prop over query
-        if (isInWishlistProp !== undefined) {
+        if (propProvided) {
             setIsInWishlist(isInWishlistProp);
         } else if (wishlistCheck) {
             setIsInWishlist(wishlistCheck.inWishlist);
         }
-    }, [wishlistCheck, isInWishlistProp]);
+    }, [wishlistCheck, isInWishlistProp, propProvided]);
 
     const addToWishlistMutation = useMutation({
         mutationFn: async () => {
@@ -126,7 +133,7 @@ export default function WishlistButton({
                 className
             )}
             onClick={handleClick}
-            disabled={isPending || isLoading}
+            disabled={isPending || isCheckLoading}
             aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
         >
             {isPending ? (

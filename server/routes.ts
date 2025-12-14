@@ -167,7 +167,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const payload = JSON.stringify({
               title: `🎉 ${product.name} عاد للمخزون!`,
               body: `المنتج الذي كنت تنتظره أصبح متاحاً الآن. اطلبه قبل نفاد الكمية!`,
-              link: `/shop?id=${product.id}`
+              link: `/shop?id=${product.id}`,
+              icon: '/logo.png',
+              type: 'stock_alert',
+              productId: product.id
             });
 
             let successCount = 0;
@@ -329,7 +332,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const payload = JSON.stringify({
         title: title,
         body: message,
-        link: link || '/'
+        link: link || '/',
+        icon: '/logo.png'
       });
 
       // Send push notifications to all subscribers
@@ -587,7 +591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const payload = JSON.stringify({
             title: `طلب #${orderId} - ${statusLabels[status].ar}`,
             body: `تم تحديث حالة طلبك إلى: ${statusLabels[status].ar}`,
-            link: `/orders/${orderId}`
+            link: `/orders/${orderId}`,
+            icon: '/logo.png',
+            type: 'order_update'
           });
 
           const pushSubscription = {

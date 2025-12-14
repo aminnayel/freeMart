@@ -260,12 +260,12 @@
   --shadow-accent: 0px 8px 24px -4px hsla(38, 92%, 50%, 0.3);
 
   /* ========================================
-     TRANSITIONS
+     TRANSITIONS - Snappy 60fps feel
      ======================================== */
-  --transition-fast: 150ms ease;
-  --transition-base: 200ms ease;
-  --transition-slow: 300ms ease;
-  --transition-bounce: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 100ms ease-out;
+  --transition-base: 150ms ease-out;
+  --transition-slow: 200ms ease-out;
+  --transition-bounce: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --tracking-normal: 0em;
 
@@ -346,6 +346,86 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  /* ========================================
+     60FPS ANIMATION OPTIMIZATIONS
+     Hardware acceleration & paint reduction
+     ======================================== */
+
+  /* Enable GPU compositing for all interactive elements */
+  button,
+  a,
+  [role="button"],
+  [data-state],
+  .btn,
+  .card,
+  [class*="hover:"],
+  [class*="active:"] {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* Optimize touchable elements on mobile */
+  @media (max-width: 768px) {
+
+    button,
+    a,
+    [role="button"],
+    .card,
+    input,
+    select,
+    textarea {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+
+  /* Force 60fps on animated elements */
+  *,
+  *::before,
+  *::after {
+    /* Use GPU for transforms and opacity transitions only */
+    transition-property: transform, opacity, background-color, border-color, color, box-shadow;
+    will-change: auto;
+    /* Reset to avoid memory issues */
+  }
+
+  /* Optimize animated containers */
+  [data-vaul-drawer],
+  [data-radix-dialog-content],
+  [data-radix-popover-content],
+  [data-radix-dropdown-menu-content],
+  [data-state="open"],
+  [data-state="closed"],
+  .animate-in,
+  .animate-out {
+    will-change: transform, opacity;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  /* Smooth scroll containers */
+  .overflow-y-auto,
+  .overflow-auto,
+  [data-radix-scroll-area-viewport] {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+  }
+
+  /* CRITICAL: Skip rendering off-screen content until needed */
+  .grid>* {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 200px;
+    /* Estimated card height */
+  }
+
+  /* Reduce layout thrashing */
+  img {
+    content-visibility: auto;
   }
 }
 
@@ -760,6 +840,56 @@ html {
 
   to {
     transform: translateY(0);
+  }
+}
+
+/* ========================================
+   DRAWER / BOTTOM SHEET GPU ACCELERATION
+   Smoother animations for native-like feel
+   ======================================== */
+
+/* Vaul drawer (bottom sheet) enhancements */
+[vaul-drawer],
+[data-vaul-drawer],
+[role="dialog"],
+.drawer-content {
+  -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Smoother drawer transitions */
+[data-state="open"][data-vaul-drawer] {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+
+[data-state="closed"][data-vaul-drawer] {
+  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+
+/* Dialog overlay smoothness */
+[data-vaul-overlay],
+[data-radix-portal] [role="dialog"]~[data-state] {
+  transition: opacity 0.25s ease !important;
+}
+
+/* Touch scroll smoothness on mobile */
+@media (max-width: 768px) {
+
+  .scroll-smooth,
+  [data-radix-scroll-area-viewport],
+  .overflow-y-auto,
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent scroll bounce/rubber-banding on iOS */
+  body {
+    overscroll-behavior-y: contain;
   }
 }
 

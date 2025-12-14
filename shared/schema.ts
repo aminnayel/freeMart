@@ -70,6 +70,7 @@ export const products = pgTable("products", {
   categoryId: integer("category_id").references(() => categories.id).notNull(),
   stock: integer("stock").notNull().default(0),
   lowStockThreshold: integer("low_stock_threshold").default(10),
+  stockValidationEnabled: boolean("stock_validation_enabled").notNull().default(true), // Enable/disable stock checking for this product
   unit: varchar("unit", { length: 50 }).notNull().default("piece"),
   brand: varchar("brand", { length: 100 }),
   barcode: varchar("barcode", { length: 50 }),

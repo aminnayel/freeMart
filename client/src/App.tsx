@@ -20,6 +20,7 @@ import Profile from "@/pages/profile";
 import Admin from "@/pages/admin";
 import AuthPage from "@/pages/auth";
 import OrderDetails from "@/pages/order-details";
+import OrderConfirmation from "@/pages/order-confirmation";
 import Wishlist from "@/pages/wishlist";
 
 import { useEffect } from "react";
@@ -86,6 +87,11 @@ function Router() {
         <Route path="/orders/:id">
           <RequireAuth>
             <OrderDetails />
+          </RequireAuth>
+        </Route>
+        <Route path="/order-confirmation/:orderId">
+          <RequireAuth>
+            <OrderConfirmation />
           </RequireAuth>
         </Route>
         <Route path="/auth" component={AuthPage} />

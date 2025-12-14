@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { subscribeToPushNotifications } from "@/lib/push-notifications";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Search, ShoppingCart, Plus, Minus, X, Bell, Sparkles, Package, Flame, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -18,6 +18,7 @@ import i18n from "@/lib/i18n";
 import type { Product, Category } from "@shared/schema";
 import { translateContent } from "@/lib/translator";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuthModal } from "@/components/auth/auth-modal-context";
 
 // New shop components
 import { ProductCard } from "@/components/shop/product-card";
@@ -29,12 +30,48 @@ import { QuantitySelector } from "@/components/shop/quantity-selector";
 import { ProductDetailsContent } from "@/components/shop/product-details-content";
 import { cn } from "@/lib/utils";
 
+// Section Header Component - defined outside to prevent recreation on each render
+const SectionHeader = memo(function SectionHeader({
+  icon: Icon,
+  title,
+  subtitle,
+  action,
+}: {
+  icon?: any;
+  title: string;
+  subtitle?: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Icon className="w-5 h-5 text-primary" />
+          </div>
+        )}
+        <div>
+          <h2 className="text-lg font-bold">{title}</h2>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        </div>
+      </div>
+      {action && (
+        <Button variant="ghost" size="sm" className="gap-1 text-primary" onClick={action.onClick}>
+          {action.label}
+          <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+        </Button>
+      )}
+    </div>
+  );
+});
+
 export default function Shop() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [notifiedProducts, setNotifiedProducts] = useState<Set<number>>(new Set());
+  const [isMounted, setIsMounted] = useState(false);
   const initialUrlSyncDone = useRef(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -42,6 +79,7 @@ export default function Shop() {
   const { t } = useTranslation();
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { openLogin } = useAuthModal();
   const isRTL = i18n.language === 'ar';
 
 
@@ -68,6 +106,11 @@ export default function Shop() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Mount immediately - shimmer only shows when data is actually loading
+  useEffect(() => {
+    setIsMounted(true);
   }, []);
 
   const getProductName = (product: Product) => {
@@ -360,28 +403,28 @@ export default function Shop() {
     },
   });
 
-  const getCartItem = (productId: number) => {
+  const getCartItem = useCallback((productId: number) => {
     return cartItems.find((item: any) => item.productId === productId);
-  };
+  }, [cartItems]);
 
-  const getCartQuantity = (productId: number) => {
-    const item = getCartItem(productId);
+  const getCartQuantity = useCallback((productId: number) => {
+    const item = cartItems.find((item: any) => item.productId === productId);
     return item?.quantity || 0;
-  };
+  }, [cartItems]);
 
-  const handleAddToCart = (productId: number) => {
+  const handleAddToCart = useCallback((productId: number) => {
     addToCartMutation.mutate(productId);
-  };
+  }, [addToCartMutation]);
 
-  const handleIncrement = (productId: number) => {
-    const cartItem = getCartItem(productId);
+  const handleIncrement = useCallback((productId: number) => {
+    const cartItem = cartItems.find((item: any) => item.productId === productId);
     if (cartItem) {
       updateQuantityMutation.mutate({ cartItemId: cartItem.id, quantity: cartItem.quantity + 1 });
     }
-  };
+  }, [cartItems, updateQuantityMutation]);
 
-  const handleDecrement = (productId: number) => {
-    const cartItem = getCartItem(productId);
+  const handleDecrement = useCallback((productId: number) => {
+    const cartItem = cartItems.find((item: any) => item.productId === productId);
     if (cartItem) {
       if (cartItem.quantity === 1) {
         removeFromCartMutation.mutate(cartItem.id);
@@ -389,7 +432,7 @@ export default function Shop() {
         updateQuantityMutation.mutate({ cartItemId: cartItem.id, quantity: cartItem.quantity - 1 });
       }
     }
-  };
+  }, [cartItems, updateQuantityMutation, removeFromCartMutation]);
 
   const handleNotifyMe = async (productId: number) => {
     if (!user) {
@@ -398,7 +441,7 @@ export default function Shop() {
         description: t('login_to_notify'),
         variant: "destructive",
       });
-      setLocation("/auth");
+      openLogin();
       return;
     }
     if ("Notification" in window) {
@@ -425,41 +468,14 @@ export default function Shop() {
   // kept comment for diff clarity
 
 
-  // Section Header Component
-  const SectionHeader = ({
-    icon: Icon,
-    title,
-    subtitle,
-    action,
-  }: {
-    icon?: any;
-    title: string;
-    subtitle?: string;
-    action?: { label: string; onClick: () => void };
-  }) => (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-3">
-        {Icon && (
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Icon className="w-5 h-5 text-primary" />
-          </div>
-        )}
-        <div>
-          <h2 className="text-lg font-bold">{title}</h2>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-        </div>
-      </div>
-      {action && (
-        <Button variant="ghost" size="sm" className="gap-1 text-primary" onClick={action.onClick}>
-          {action.label}
-          <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-        </Button>
-      )}
-    </div>
-  );
+  // Product Details Modal Content moved to separate component
+  // kept comment for diff clarity
 
-  // Hot Deals / Featured Products Section (horizontal scroll)
-  const hotDeals = products.filter(p => p.isAvailable && p.stock && p.stock > 0).slice(0, 8);
+  // Hot Deals / Featured Products Section (horizontal scroll) - memoized for performance
+  const hotDeals = useMemo(() =>
+    products.filter(p => p.isAvailable && p.stock && p.stock > 0).slice(0, 8),
+    [products]
+  );
 
   // Shimmer skeleton for instant visual feedback
   const ShimmerSkeleton = () => (
@@ -515,8 +531,8 @@ export default function Shop() {
     </div>
   );
 
-  // Check if initial data is loading
-  const isInitialLoading = isCategoriesLoading || isOffersLoading || (isProductsLoading && products.length === 0);
+  // Check if initial data is loading (also show shimmer briefly on mount for smooth page transitions)
+  const isInitialLoading = !isMounted || isCategoriesLoading || isOffersLoading || (isProductsLoading && products.length === 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -526,68 +542,73 @@ export default function Shop() {
       <div className="lg:hidden">
         {/* Main Content */}
         <div className="pb-24 pt-4">
-          {isInitialLoading && !searchQuery ? (
-            // Show shimmer skeleton while initial data loads
+          {isInitialLoading ? (
+            // Show shimmer skeleton while initial data loads (including during search)
             <ShimmerSkeleton />
           ) : searchQuery ? (
             // Search Results View - Grouped by Category
-            <div className="p-4">
-              <p className="text-sm text-muted-foreground mb-4">
-                {products.length} {isRTL ? 'نتيجة' : 'results'} "{searchQuery}"
-              </p>
-              {/* Group products by category */}
-              {(() => {
-                const grouped = products.reduce((acc, product) => {
-                  const catId = product.categoryId;
-                  if (!acc[catId]) acc[catId] = [];
-                  acc[catId].push(product);
-                  return acc;
-                }, {} as Record<number, typeof products>);
+            isProductsLoading ? (
+              // Show shimmer while searching
+              <ShimmerSkeleton />
+            ) : (
+              <div className="p-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {products.length} {isRTL ? 'نتيجة' : 'results'} "{searchQuery}"
+                </p>
+                {/* Group products by category */}
+                {(() => {
+                  const grouped = products.reduce((acc, product) => {
+                    const catId = product.categoryId;
+                    if (!acc[catId]) acc[catId] = [];
+                    acc[catId].push(product);
+                    return acc;
+                  }, {} as Record<number, typeof products>);
 
-                return Object.entries(grouped).map(([catId, categoryProducts]) => {
-                  const category = categories.find(c => c.id === Number(catId));
-                  const categoryName = i18n.language === 'en' && category?.englishName
-                    ? category.englishName
-                    : category?.name || (isRTL ? 'أخرى' : 'Other');
+                  return Object.entries(grouped).map(([catId, categoryProducts]) => {
+                    const category = categories.find(c => c.id === Number(catId));
+                    const categoryName = i18n.language === 'en' && category?.englishName
+                      ? category.englishName
+                      : category?.name || (isRTL ? 'أخرى' : 'Other');
 
-                  return (
-                    <div key={catId} className="mb-6">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg">{category?.imageUrl || '📦'}</span>
-                        <h3 className="font-bold text-sm text-muted-foreground">{categoryName}</h3>
-                        <span className="text-xs text-muted-foreground">({categoryProducts.length})</span>
+                    return (
+                      <div key={catId} className="mb-6">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-lg">{category?.imageUrl || '📦'}</span>
+                          <h3 className="font-bold text-sm text-muted-foreground">{categoryName}</h3>
+                          <span className="text-xs text-muted-foreground">({categoryProducts.length})</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {categoryProducts.map((product) => (
+                            <ProductCard
+                              key={product.id}
+                              product={product}
+                              quantity={getCartQuantity(product.id)}
+                              onAddToCart={() => handleAddToCart(product.id)}
+                              onIncrement={() => handleIncrement(product.id)}
+                              onDecrement={() => handleDecrement(product.id)}
+                              onNotifyMe={() => handleNotifyMe(product.id)}
+                              onClick={() => setSelectedProduct(product)}
+                              isRTL={isRTL}
+                              isInWishlist={wishlistProductIds.has(product.id)}
+                              t={t}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        {categoryProducts.map((product) => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            quantity={getCartQuantity(product.id)}
-                            onAddToCart={() => handleAddToCart(product.id)}
-                            onIncrement={() => handleIncrement(product.id)}
-                            onDecrement={() => handleDecrement(product.id)}
-                            onNotifyMe={() => handleNotifyMe(product.id)}
-                            onClick={() => setSelectedProduct(product)}
-                            isRTL={isRTL}
-                            isInWishlist={wishlistProductIds.has(product.id)}
-                            t={t}
-                          />
-                        ))}
-                      </div>
+                    );
+                  });
+                })()}
+                {products.length === 0 && !isProductsLoading && (
+                  <div className="flex flex-col items-center justify-center text-center py-16">
+                    <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-4">
+                      <Search className="w-10 h-10 text-muted-foreground/50" />
                     </div>
-                  );
-                });
-              })()}
-              {products.length === 0 && !isProductsLoading && (
-                <div className="flex flex-col items-center justify-center text-center py-16">
-                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-4">
-                    <Search className="w-10 h-10 text-muted-foreground/50" />
+                    <h3 className="text-lg font-semibold mb-2">{t('no_products')}</h3>
+                    <p className="text-muted-foreground">{isRTL ? 'جرب كلمات بحث مختلفة' : 'Try different search terms'}</p>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{t('no_products')}</h3>
-                  <p className="text-muted-foreground">{isRTL ? 'جرب كلمات بحث مختلفة' : 'Try different search terms'}</p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )
           ) : (
             // Home View with Sections
             <div className="space-y-6">
@@ -664,11 +685,20 @@ export default function Shop() {
               <div className="px-4" id="products-grid">
                 <SectionHeader
                   icon={Package}
-                  title={selectedCategory
-                    ? categories.find(c => c.id === selectedCategory)?.name || (isRTL ? 'المنتجات' : 'Products')
-                    : (isRTL ? 'جميع المنتجات' : 'All Products')
+                  title={searchQuery
+                    ? (isRTL ? `نتائج البحث: "${searchQuery}"` : `Search: "${searchQuery}"`)
+                    : selectedCategory
+                      ? categories.find(c => c.id === selectedCategory)?.name || (isRTL ? 'المنتجات' : 'Products')
+                      : (isRTL ? 'جميع المنتجات' : 'All Products')
                   }
-                  subtitle={selectedCategory ? `${products.length} ${isRTL ? 'منتج' : 'products'}` : undefined}
+                  subtitle={(selectedCategory || searchQuery) ? `${products.length} ${isRTL ? 'منتج' : 'products'}` : undefined}
+                  action={(selectedCategory || searchQuery) ? {
+                    label: isRTL ? 'عرض الكل' : 'Show All',
+                    onClick: () => {
+                      setSelectedCategory(null);
+                      setSearchQuery('');
+                    }
+                  } : undefined}
                 />
 
                 {isProductsLoading ? (
@@ -961,6 +991,13 @@ export default function Shop() {
         isMobile ? (
           <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
             <DrawerContent className="max-h-[90vh]">
+              {/* Accessibility - visually hidden but available for screen readers */}
+              <DrawerTitle className="sr-only">
+                {selectedProduct?.name || 'Product Details'}
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                {selectedProduct?.name || 'View product details'}
+              </DrawerDescription>
               <div className="overflow-y-auto p-6">
                 {selectedProduct && <ProductDetailsContent
                   product={selectedProduct}
@@ -981,6 +1018,13 @@ export default function Shop() {
         ) : (
           <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
             <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden">
+              {/* Accessibility - visually hidden but available for screen readers */}
+              <DialogTitle className="sr-only">
+                {selectedProduct?.name || 'Product Details'}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {selectedProduct?.name || 'View product details'}
+              </DialogDescription>
               {selectedProduct && <ProductDetailsContent
                 product={selectedProduct}
                 getCartQuantity={getCartQuantity}

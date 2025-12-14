@@ -15,6 +15,22 @@ export function urlBase64ToUint8Array(base64String: string) {
     return outputArray;
 }
 
+// Check if user has an active push subscription
+export async function checkPushSubscription(): Promise<boolean> {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        return false;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        return !!subscription;
+    } catch (error) {
+        console.error("Failed to check push subscription:", error);
+        return false;
+    }
+}
+
 export async function subscribeToPushNotifications() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
         console.warn("Push notifications not supported");
