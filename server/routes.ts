@@ -28,17 +28,8 @@ webpush.setVapidDetails(
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Auth check is handled in auth.ts setupAuth
+
 
   // Profile routes
   app.get('/api/profile', isAuthenticated, async (req: any, res) => {
