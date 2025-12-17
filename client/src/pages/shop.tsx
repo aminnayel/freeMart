@@ -624,9 +624,9 @@ export default function Shop() {
       {/* ======================================== */}
       {/* MOBILE LAYOUT */}
       {/* ======================================== */}
-      <div className="lg:hidden overflow-x-hidden">
+      <div className="lg:hidden">
         {/* Main Content */}
-        <div className="pb-24 pt-4">
+        <div className="pb-24">
           {isInitialLoading ? (
             // Show shimmer skeleton while initial data loads (including during search)
             <ShimmerSkeleton />
@@ -750,20 +750,22 @@ export default function Shop() {
                 </div>
               )}
 
-              {/* Categories Row - Sticky */}
-              <div id="categories-section" className={`sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border/50 px-4 py-4 -mx-4 mb-4 transition-shadow duration-300 ${categoriesStuck ? 'shadow-md' : ''}`}>
-                <div className="px-4">
-                  <SectionHeader
-                    icon={Sparkles}
-                    title={isRTL ? 'الأقسام' : 'Categories'}
+              {/* Categories Row - Sticky (Same config as desktop) */}
+              <div id="categories-section" className={`sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border/50 pt-6 pb-3 px-4 mb-4 transition-shadow duration-300 ${categoriesStuck ? 'shadow-md' : ''}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                      <span className="text-xl">⚡</span> {isRTL ? 'الأقسام' : 'Categories'}
+                    </h2>
+                  </div>
+                  <CategoryRow
+                    categories={categories}
+                    activeId={selectedCategory}
+                    onSelect={handleCategorySelect}
+                    isRTL={isRTL}
+                    size="lg"
                   />
                 </div>
-                <CategoryRow
-                  categories={categories}
-                  activeId={selectedCategory}
-                  onSelect={handleCategorySelect}
-                  isRTL={isRTL}
-                />
               </div>
 
               {/* All Products Grid */}

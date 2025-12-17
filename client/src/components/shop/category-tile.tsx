@@ -36,19 +36,19 @@ export function CategoryTile({
 
     const sizeConfig = {
         sm: {
-            container: "min-w-[72px] p-2",
-            icon: "w-12 h-12 text-2xl",
+            container: "min-w-[60px] p-1.5",
+            icon: "w-10 h-10 text-xl",
             text: "text-[10px]",
         },
         md: {
-            container: "min-w-[88px] p-2.5",
-            icon: "w-14 h-14 text-3xl",
-            text: "text-xs",
+            container: "min-w-[70px] p-1.5",
+            icon: "w-12 h-12 text-2xl",
+            text: "text-[11px]",
         },
         lg: {
-            container: "min-w-[100px] p-3",
-            icon: "w-16 h-16 text-4xl",
-            text: "text-sm",
+            container: "min-w-[80px] p-2",
+            icon: "w-12 h-12 text-2xl",
+            text: "text-xs",
         },
     };
 
@@ -58,7 +58,7 @@ export function CategoryTile({
         <button
             onClick={onClick}
             className={cn(
-                "group flex flex-col items-center gap-1.5 snap-start box-border rounded-none",
+                "group flex flex-col items-center gap-1 snap-start box-border rounded-none",
                 "transition-colors duration-150",
                 "focus:outline-none",
                 config.container,
