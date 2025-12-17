@@ -184,9 +184,7 @@ export default function Shop() {
         const category = categories?.find(c => c.slug === linkValue);
         if (category) {
           setSelectedCategory(category.id);
-          setTimeout(() => {
-            document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
+          // Scroll handled by category onSelect handler
         }
         break;
       case 'product':
@@ -210,7 +208,8 @@ export default function Shop() {
         }
         break;
       default:
-        document.getElementById('products-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // No default scroll
+        break;
     }
   };
 
@@ -704,23 +703,25 @@ export default function Shop() {
                   activeId={selectedCategory}
                   onSelect={(id) => {
                     setSelectedCategory(id);
-                    // Scroll to make categories header at top after products load
-                    // Use longer timeout to wait for products query to update
-                    setTimeout(() => {
-                      requestAnimationFrame(() => {
-                        const element = document.getElementById('categories-section');
-                        if (element) {
-                          const headerOffset = 80; // Account for any fixed headers
-                          const elementPosition = element.getBoundingClientRect().top;
-                          const offsetPosition = elementPosition + window.scrollY - headerOffset;
+                    // Only scroll if categories bar is not already stuck at top
+                    if (!categoriesStuck) {
+                      // Scroll to make categories header at top after products load
+                      setTimeout(() => {
+                        requestAnimationFrame(() => {
+                          const element = document.getElementById('categories-section');
+                          if (element) {
+                            const headerOffset = 80;
+                            const elementPosition = element.getBoundingClientRect().top;
+                            const offsetPosition = elementPosition + window.scrollY - headerOffset;
 
-                          window.scrollTo({
-                            top: offsetPosition,
-                            behavior: 'smooth'
-                          });
-                        }
-                      });
-                    }, 300); // Increased timeout to allow products to start loading
+                            window.scrollTo({
+                              top: offsetPosition,
+                              behavior: 'smooth'
+                            });
+                          }
+                        });
+                      }, 300);
+                    }
                   }}
                   isRTL={isRTL}
                 />
@@ -904,7 +905,7 @@ export default function Shop() {
           )}
           {/* Horizontal Categories Row - Sticky on Desktop */}
           {!isInitialLoading && !searchQuery && (
-            <div id="desktop-categories-section" className={`sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border/50 py-6 -mx-8 px-8 mb-4 transition-shadow duration-300 ${categoriesStuck ? 'shadow-md' : ''}`}>
+            <div id="desktop-categories-section" className={`sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border/50 py-6 -mx-4 lg:-mx-8 px-4 lg:px-8 mb-4 transition-shadow duration-300 ${categoriesStuck ? 'shadow-md' : ''}`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
                   <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -917,22 +918,25 @@ export default function Shop() {
                   onSelect={(id) => {
                     if (!searchQuery) {
                       setSelectedCategory(id);
-                      // Scroll to make categories header at top after products load
-                      setTimeout(() => {
-                        requestAnimationFrame(() => {
-                          const element = document.getElementById('desktop-categories-section');
-                          if (element) {
-                            const headerOffset = 80;
-                            const elementPosition = element.getBoundingClientRect().top;
-                            const offsetPosition = elementPosition + window.scrollY - headerOffset;
+                      // Only scroll if categories bar is not already stuck at top
+                      if (!categoriesStuck) {
+                        // Scroll to make categories header at top after products load
+                        setTimeout(() => {
+                          requestAnimationFrame(() => {
+                            const element = document.getElementById('desktop-categories-section');
+                            if (element) {
+                              const headerOffset = 80;
+                              const elementPosition = element.getBoundingClientRect().top;
+                              const offsetPosition = elementPosition + window.scrollY - headerOffset;
 
-                            window.scrollTo({
-                              top: offsetPosition,
-                              behavior: 'smooth'
-                            });
-                          }
-                        });
-                      }, 300);
+                              window.scrollTo({
+                                top: offsetPosition,
+                                behavior: 'smooth'
+                              });
+                            }
+                          });
+                        }, 300);
+                      }
                     }
                   }}
                   isRTL={isRTL}
