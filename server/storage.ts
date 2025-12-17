@@ -522,6 +522,64 @@ export class MemStorage implements IStorage {
     ];
 
     promos.forEach(p => this.createPromoCode(p));
+
+    // Sample Offers/Banners for homepage carousel
+    const demoOffers = [
+      {
+        title: "🔥 خصم 30% على جميع الخضروات!",
+        titleEn: "🔥 30% Off All Vegetables!",
+        subtitle: "عرض محدود - لفترة محدودة فقط",
+        subtitleEn: "Limited Time Offer - Grab it Now",
+        backgroundColor: "linear-gradient(135deg, #2E9E4F 0%, #27AE60 100%)",
+        ctaText: "تسوق الآن",
+        ctaTextEn: "Shop Now",
+        linkType: "category",
+        linkValue: "fruits-vegetables",
+        sortOrder: 1,
+        isActive: true,
+      },
+      {
+        title: "🥛 منتجات الألبان الطازجة",
+        titleEn: "🥛 Fresh Dairy Products",
+        subtitle: "جودة عالية - أسعار مميزة",
+        subtitleEn: "Premium Quality - Best Prices",
+        backgroundColor: "linear-gradient(135deg, #3498db 0%, #2980b9 100%)",
+        ctaText: "اطلب الآن",
+        ctaTextEn: "Order Now",
+        linkType: "category",
+        linkValue: "dairy-eggs",
+        sortOrder: 2,
+        isActive: true,
+      },
+      {
+        title: "🍫 حلويات ومقرمشات مميزة",
+        titleEn: "🍫 Premium Snacks & Sweets",
+        subtitle: "اكتشف التشكيلة الكاملة",
+        subtitleEn: "Discover the Full Collection",
+        backgroundColor: "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)",
+        ctaText: "استكشف",
+        ctaTextEn: "Explore",
+        linkType: "category",
+        linkValue: "snacks-sweets",
+        sortOrder: 3,
+        isActive: true,
+      },
+      {
+        title: "🍗 لحوم طازجة يومياً",
+        titleEn: "🍗 Fresh Meat Daily",
+        subtitle: "مذبوحات طازجة كل يوم",
+        subtitleEn: "Freshly Slaughtered Every Day",
+        backgroundColor: "linear-gradient(135deg, #8B4513 0%, #654321 100%)",
+        ctaText: "اشترِ الآن",
+        ctaTextEn: "Buy Now",
+        linkType: "category",
+        linkValue: "meat-poultry",
+        sortOrder: 4,
+        isActive: true,
+      },
+    ];
+
+    demoOffers.forEach(o => this.createOffer(o));
   }
 
   // User operations

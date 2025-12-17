@@ -394,8 +394,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Footer - Desktop Only */}
-      <footer className="hidden md:block border-t bg-muted/30">
+      {/* Footer - Hidden for now */}
+      <footer className="hidden">{/* md:block border-t bg-muted/30 */}
         <div className="container mx-auto px-4 lg:px-8 py-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Brand */}

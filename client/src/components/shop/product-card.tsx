@@ -87,12 +87,20 @@ export const ProductCard = memo(function ProductCard({
     return (
         <Card
             className={cn(
-                "group relative overflow-hidden border-0 bg-white dark:bg-slate-900 rounded-2xl transition-all duration-300 cursor-pointer",
-                "hover:shadow-lg hover:-translate-y-1",
-                "active:scale-[0.98] active:shadow-md",
-                isPressed && "scale-[0.98]",
+                "group relative overflow-hidden border-0 bg-white dark:bg-slate-900 rounded-2xl cursor-pointer will-animate",
+                "transition-all duration-200",
+                // Mobile: Quick tap feedback
+                "active:scale-[0.98] active:shadow-md lg:active:scale-100",
+                // Desktop: Elevated hover
+                "lg:hover:shadow-xl lg:hover:-translate-y-1.5",
+                // Gradient overlay on hover
+                "before:absolute before:inset-0 before:rounded-2xl before:opacity-0 before:transition-opacity before:duration-300",
+                "hover:before:opacity-100 before:bg-gradient-to-br before:from-primary/5 before:to-accent/5 before:pointer-events-none",
                 isOutOfStock && "opacity-80"
             )}
+            style={{
+                boxShadow: "0px 2px 8px -2px rgba(0, 0, 0, 0.08)"
+            }}
             onClick={onClick}
             onMouseDown={() => setIsPressed(true)}
             onMouseUp={() => setIsPressed(false)}
@@ -105,15 +113,23 @@ export const ProductCard = memo(function ProductCard({
                 {/* Image */}
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
                     {(product.imageUrl?.startsWith('http') || product.imageUrl?.startsWith('/')) ? (
-                        <img
-                            src={product.imageUrl}
-                            alt={getDisplayName()}
-                            className={cn(
-                                "w-full h-full object-cover transition-transform duration-500",
-                                "group-hover:scale-110"
-                            )}
-                            loading="lazy"
-                        />
+                        <>
+                            <img
+                                src={product.imageUrl}
+                                alt={getDisplayName()}
+                                className={cn(
+                                    "w-full h-full object-cover will-animate",
+                                    "transition-all duration-500 ease-out",
+                                    // Desktop: Zoom + brightness on hover
+                                    "lg:group-hover:scale-110 lg:group-hover:brightness-105",
+                                    // Mobile: Subtle brightness only
+                                    "group-active:brightness-95"
+                                )}
+                                loading="lazy"
+                            />
+                            {/* Subtle gradient overlay on hover */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        </>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-6xl">
                             {product.imageUrl || <Package className="w-16 h-16 text-slate-300" />}
@@ -198,9 +214,18 @@ export const ProductCard = memo(function ProductCard({
                             }
                         </Button>
                     ) : quantity === 0 ? (
-                        // Add to Cart Button
+                        // Add to Cart Button with gradient and spring animation
                         <Button
-                            className="w-full h-10 rounded-xl text-sm font-medium gap-2 shadow-sm hover:shadow-md transition-all"
+                            className={cn(
+                                "w-full h-10 rounded-xl text-sm font-medium gap-2 will-animate",
+                                "bg-gradient-primary text-white border-0",
+                                "transition-all duration-200",
+                                // Mobile: Quick tap
+                                "active:scale-95",
+                                // Desktop: Spring bounce + glow
+                                "lg:hover:shadow-primary lg:hover:scale-105",
+                                "lg:active:scale-100"
+                            )}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onAddToCart();
@@ -211,27 +236,42 @@ export const ProductCard = memo(function ProductCard({
                             {isRTL ? 'أضف' : 'Add'}
                         </Button>
                     ) : (
-                        // Quantity Selector
+                        // Quantity Selector with glassmorphism and smooth animations
                         <div
-                            className="flex items-center justify-between bg-primary/10 rounded-xl p-1"
+                            className={cn(
+                                "flex items-center justify-between rounded-xl p-1 will-animate",
+                                "bg-gradient-to-r from-primary/10 via-primary/15 to-primary/10",
+                                "transition-all duration-200",
+                                "hover:from-primary/15 hover:via-primary/20 hover:to-primary/15"
+                            )}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
+                                className={cn(
+                                    "h-8 w-8 rounded-lg will-animate",
+                                    "hover:bg-white dark:hover:bg-slate-800 shadow-sm",
+                                    "transition-all duration-150",
+                                    "active:scale-95 lg:hover:scale-105"
+                                )}
                                 onClick={onDecrement}
                                 disabled={isLoading}
                             >
                                 <Minus className="w-4 h-4" />
                             </Button>
-                            <span className="font-bold text-base text-primary min-w-[2rem] text-center">
+                            <span className="font-bold text-base text-primary min-w-[2rem] text-center transition-all duration-200">
                                 {quantity}
                             </span>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
+                                className={cn(
+                                    "h-8 w-8 rounded-lg will-animate",
+                                    "hover:bg-white dark:hover:bg-slate-800 shadow-sm",
+                                    "transition-all duration-150",
+                                    "active:scale-95 lg:hover:scale-105"
+                                )}
                                 onClick={onIncrement}
                                 disabled={isLoading}
                             >

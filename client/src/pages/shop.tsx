@@ -70,6 +70,7 @@ export default function Shop() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [categoriesStuck, setCategoriesStuck] = useState(false);
   const [notifiedProducts, setNotifiedProducts] = useState<Set<number>>(new Set());
   const [isMounted, setIsMounted] = useState(false);
   const initialUrlSyncDone = useRef(false);
@@ -101,11 +102,36 @@ export default function Shop() {
   }, []);
 
   useEffect(() => {
+    let categoriesOffset = 0;
+
+    // Calculate the initial offset of categories section
+    const updateCategoriesOffset = () => {
+      const categoriesElement = document.getElementById('categories-section') ||
+        document.getElementById('desktop-categories-section');
+      if (categoriesElement) {
+        categoriesOffset = categoriesElement.offsetTop;
+      }
+    };
+
+    // Update offset on mount and when content changes
+    updateCategoriesOffset();
+
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
+
+      // Check if we've scrolled past the categories section's natural position
+      // If yes, it's stuck and should have shadow
+      // Add small buffer (50px) to avoid premature shadow
+      setCategoriesStuck(window.scrollY > categoriesOffset + 50);
     };
+
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("resize", updateCategoriesOffset);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", updateCategoriesOffset);
+    };
   }, []);
 
   // Mount immediately - shimmer only shows when data is actually loading
@@ -621,9 +647,13 @@ export default function Shop() {
                     onBannerClick={handleOfferClick}
                   />
                 ) : (
-                  <div className="rounded-3xl bg-gradient-to-r from-primary/80 to-primary p-6 text-white">
-                    <h3 className="text-xl font-bold mb-2">{isRTL ? 'مرحباً بك!' : 'Welcome!'}</h3>
-                    <p className="text-white/80 text-sm">{isRTL ? 'اكتشف أفضل المنتجات والعروض' : 'Discover the best products and offers'}</p>
+                  <div className="rounded-3xl bg-gradient-hero p-6 text-white relative overflow-hidden shadow-lg">
+                    {/* Animated gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-50 animate-pulse" style={{ animationDuration: '6s' }} />
+                    <div className="relative z-10">
+                      <h3 className="text-xl font-bold mb-2 drop-shadow-md">{isRTL ? 'مرحباً بك!' : 'Welcome!'}</h3>
+                      <p className="text-white/90 text-sm drop-shadow">{isRTL ? 'اكتشف أفضل المنتجات والعروض' : 'Discover the best products and offers'}</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -661,21 +691,36 @@ export default function Shop() {
                 </div>
               )}
 
-              {/* Categories Row */}
-              <div id="categories-section" className="px-4 scroll-mt-4">
-                <SectionHeader
-                  icon={Sparkles}
-                  title={isRTL ? 'الأقسام' : 'Categories'}
-                />
+              {/* Categories Row - Sticky */}
+              <div id="categories-section" className={`sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border/50 px-4 py-4 -mx-4 mb-4 transition-shadow duration-300 ${categoriesStuck ? 'shadow-md' : ''}`}>
+                <div className="px-4">
+                  <SectionHeader
+                    icon={Sparkles}
+                    title={isRTL ? 'الأقسام' : 'Categories'}
+                  />
+                </div>
                 <CategoryRow
                   categories={categories}
                   activeId={selectedCategory}
                   onSelect={(id) => {
                     setSelectedCategory(id);
-                    // Scroll to categories section after selection to keep it in view
+                    // Scroll to make categories header at top after products load
+                    // Use longer timeout to wait for products query to update
                     setTimeout(() => {
-                      document.getElementById('categories-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 50);
+                      requestAnimationFrame(() => {
+                        const element = document.getElementById('categories-section');
+                        if (element) {
+                          const headerOffset = 80; // Account for any fixed headers
+                          const elementPosition = element.getBoundingClientRect().top;
+                          const offsetPosition = elementPosition + window.scrollY - headerOffset;
+
+                          window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                          });
+                        }
+                      });
+                    }, 300); // Increased timeout to allow products to start loading
                   }}
                   isRTL={isRTL}
                 />
@@ -857,23 +902,43 @@ export default function Shop() {
               </AutoScrollArea>
             </div>
           )}
-          {/* Horizontal Categories Row */}
+          {/* Horizontal Categories Row - Sticky on Desktop */}
           {!isInitialLoading && !searchQuery && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <span className="text-2xl">⚡</span> {t('categories')}
-                </h2>
+            <div id="desktop-categories-section" className={`sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border/50 py-6 -mx-8 px-8 mb-4 transition-shadow duration-300 ${categoriesStuck ? 'shadow-md' : ''}`}>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <span className="text-2xl">⚡</span> {t('categories')}
+                  </h2>
+                </div>
+                <CategoryRow
+                  categories={categories}
+                  activeId={selectedCategory}
+                  onSelect={(id) => {
+                    if (!searchQuery) {
+                      setSelectedCategory(id);
+                      // Scroll to make categories header at top after products load
+                      setTimeout(() => {
+                        requestAnimationFrame(() => {
+                          const element = document.getElementById('desktop-categories-section');
+                          if (element) {
+                            const headerOffset = 80;
+                            const elementPosition = element.getBoundingClientRect().top;
+                            const offsetPosition = elementPosition + window.scrollY - headerOffset;
+
+                            window.scrollTo({
+                              top: offsetPosition,
+                              behavior: 'smooth'
+                            });
+                          }
+                        });
+                      }, 300);
+                    }
+                  }}
+                  isRTL={isRTL}
+                  size="lg"
+                />
               </div>
-              <CategoryRow
-                categories={categories}
-                activeId={selectedCategory}
-                onSelect={(id) => {
-                  if (!searchQuery) setSelectedCategory(id);
-                }}
-                isRTL={isRTL}
-                size="lg"
-              />
             </div>
           )}
 

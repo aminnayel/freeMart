@@ -110,9 +110,9 @@
   --card-border: 40 15% 92%;
   /* Subtle warm border */
 
-  /* Primary: Fresh Leaf Green - organic, trustworthy */
-  --primary: 145 63% 42%;
-  /* #2E9E4F - Vibrant green */
+  /* Primary: Rich Emerald Green - vibrant, fresh, organic */
+  --primary: 158 64% 52%;
+  /* #34C759 - Rich emerald with high saturation */
   --primary-foreground: 0 0% 100%;
 
   /* Secondary: Soft Sage - supportive, calming */
@@ -121,10 +121,10 @@
   --secondary-foreground: 145 40% 30%;
   /* Dark sage text */
 
-  /* Accent: Warm Amber - deals, highlights */
-  --accent: 38 92% 50%;
-  /* #F5A623 - Warm amber */
-  --accent-foreground: 222 47% 11%;
+  /* Accent: Vibrant Coral - energy, deals, CTAs */
+  --accent: 14 90% 53%;
+  /* #F2552C - Vibrant coral-orange for food appeal */
+  --accent-foreground: 0 0% 100%;
 
   /* Muted: Neutral grays */
   --muted: 40 15% 95%;
@@ -136,7 +136,7 @@
   --destructive: 0 84% 60%;
   /* Error red */
   --destructive-foreground: 0 0% 100%;
-  --success: 145 63% 42%;
+  --success: 158 64% 52%;
   /* Same as primary - in stock */
   --warning: 38 92% 50%;
   /* Amber - low stock */
@@ -193,6 +193,27 @@
   /* Amber */
   --household: 220 15% 55%;
   /* Gray blue */
+
+  /* ========================================
+     MODERN GRADIENT SYSTEM
+     ======================================== */
+
+  /* Primary Gradients - Emerald to Teal */
+  --gradient-primary-start: 158 64% 52%;
+  --gradient-primary-end: 172 66% 50%;
+
+  /* Accent Gradients - Coral to Orange */
+  --gradient-accent-start: 14 90% 53%;
+  --gradient-accent-end: 27 90% 55%;
+
+  /* Hero Gradients - Multi-stop vibrant */
+  --gradient-hero-1: 158 64% 52%;
+  --gradient-hero-2: 172 66% 50%;
+  --gradient-hero-3: 186 68% 48%;
+
+  /* Card Gradients - Subtle premium feel */
+  --gradient-card-light: 0 0% 100%;
+  --gradient-card-subtle: 158 30% 98%;
 
   /* ========================================
      TYPOGRAPHY SYSTEM
@@ -256,16 +277,42 @@
   --shadow-2xl: 0px 32px 64px -16px rgba(0, 0, 0, 0.2);
 
   /* Colored shadows for CTAs */
-  --shadow-primary: 0px 8px 24px -4px hsla(145, 63%, 42%, 0.3);
-  --shadow-accent: 0px 8px 24px -4px hsla(38, 92%, 50%, 0.3);
+  --shadow-primary: 0px 8px 24px -4px hsla(158, 64%, 52%, 0.35);
+  --shadow-accent: 0px 8px 24px -4px hsla(14, 90%, 53%, 0.35);
+  --shadow-primary-lg: 0px 12px 32px -6px hsla(158, 64%, 52%, 0.4);
+  --shadow-accent-lg: 0px 12px 32px -6px hsla(14, 90%, 53%, 0.4);
+
+  /* Glow effects for hover states */
+  --glow-primary: 0 0 20px hsla(158, 64%, 52%, 0.4);
+  --glow-accent: 0 0 20px hsla(14, 90%, 53%, 0.4);
 
   /* ========================================
-     TRANSITIONS - Snappy 60fps feel
+     ANIMATIONS - Device-Optimized System
+     Mobile: Fast, light | Desktop: Rich, expressive
      ======================================== */
-  --transition-fast: 100ms ease-out;
-  --transition-base: 150ms ease-out;
-  --transition-slow: 200ms ease-out;
-  --transition-bounce: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Mobile-first timing (battery-friendly) */
+  --anim-duration-instant: 50ms;
+  --anim-duration-fast: 150ms;
+  --anim-duration-base: 200ms;
+  --anim-duration-slow: 250ms;
+  --anim-duration-slower: 300ms;
+
+  /* Easing curves for natural motion */
+  --ease-out-smooth: cubic-bezier(0.33, 1, 0.68, 1);
+  /* Smooth deceleration */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Spring bounce */
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  /* Elastic bounce */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Material design */
+
+  /* Legacy transitions (for backward compatibility) */
+  --transition-fast: var(--anim-duration-fast) var(--ease-out-smooth);
+  --transition-base: var(--anim-duration-base) var(--ease-out-smooth);
+  --transition-slow: var(--anim-duration-slow) var(--ease-out-smooth);
+  --transition-bounce: var(--anim-duration-slower) var(--ease-spring);
 
   --tracking-normal: 0em;
 
@@ -293,41 +340,52 @@
   --elevate-1: rgba(255, 255, 255, .04);
   --elevate-2: rgba(255, 255, 255, .09);
 
-  /* Lighter dark mode - more readable */
-  --background: 222 35% 16%;
+  /* Deep navy dark mode - richer, more premium */
+  --background: 222 47% 11%;
   --foreground: 210 40% 98%;
   --border: 217 25% 24%;
-  --card: 222 30% 18%;
+  --card: 222 40% 14%;
   --card-foreground: 210 40% 98%;
   --card-border: 217 25% 24%;
-  --sidebar: 222 35% 14%;
+  --sidebar: 222 47% 9%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-border: 217 25% 22%;
-  --sidebar-primary: 142 70% 45%;
+  --sidebar-primary: 158 70% 50%;
   --sidebar-primary-foreground: 222 47% 11%;
   --sidebar-accent: 217 25% 22%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 142 70% 45%;
-  --popover: 222 30% 18%;
+  --sidebar-ring: 158 70% 50%;
+  --popover: 222 40% 14%;
   --popover-foreground: 210 40% 98%;
   --popover-border: 217 25% 24%;
-  --primary: 142 70% 45%;
+  --primary: 158 70% 50%;
   --primary-foreground: 222 47% 11%;
   --secondary: 217 25% 22%;
   --secondary-foreground: 210 40% 98%;
   --muted: 217 25% 22%;
   --muted-foreground: 215 20% 70%;
-  --accent: 217 25% 22%;
+  --accent: 14 85% 55%;
   --accent-foreground: 210 40% 98%;
   --destructive: 0 62% 50%;
   --destructive-foreground: 210 40% 98%;
   --input: 217 25% 22%;
-  --ring: 142 70% 45%;
-  --chart-1: 142 70% 45%;
+  --ring: 158 70% 50%;
+  --chart-1: 158 70% 50%;
   --chart-2: 221 83% 53%;
   --chart-3: 43 96% 56%;
   --chart-4: 0 62% 50%;
   --chart-5: 280 87% 47%;
+
+  /* Dark mode gradients */
+  --gradient-primary-start: 158 70% 50%;
+  --gradient-primary-end: 172 72% 48%;
+  --gradient-accent-start: 14 85% 55%;
+  --gradient-accent-end: 27 85% 57%;
+  --gradient-hero-1: 158 70% 50%;
+  --gradient-hero-2: 172 72% 48%;
+  --gradient-hero-3: 186 74% 46%;
+  --gradient-card-light: 222 40% 14%;
+  --gradient-card-subtle: 158 20% 18%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
   --shadow-xs: 0px 1px 3px 0px rgba(0, 0, 0, 0.4);
@@ -337,6 +395,13 @@
   --shadow-lg: 0px 10px 15px -3px rgba(0, 0, 0, 0.5), 0px 20px 25px -5px rgba(0, 0, 0, 0.6);
   --shadow-xl: 0px 20px 25px -5px rgba(0, 0, 0, 0.6), 0px 25px 50px -12px rgba(0, 0, 0, 0.7);
   --shadow-2xl: 0px 25px 50px -12px rgba(0, 0, 0, 0.7);
+
+  --shadow-primary: 0px 8px 24px -4px hsla(158, 70%, 50%, 0.3);
+  --shadow-accent: 0px 8px 24px -4px hsla(14, 85%, 55%, 0.3);
+  --shadow-primary-lg: 0px 12px 32px -6px hsla(158, 70%, 50%, 0.35);
+  --shadow-accent-lg: 0px 12px 32px -6px hsla(14, 85%, 55%, 0.35);
+  --glow-primary: 0 0 20px hsla(158, 70%, 50%, 0.3);
+  --glow-accent: 0 0 20px hsla(14, 85%, 55%, 0.3);
 }
 
 @layer base {
@@ -526,6 +591,234 @@
     max-width: none !important;
     border-radius: 1rem 1rem 0 0;
     max-height: 90vh;
+  }
+
+  /* ========================================
+     MODERN GRADIENT UTILITIES
+     ======================================== */
+
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--gradient-primary-start)) 0%, hsl(var(--gradient-primary-end)) 100%);
+  }
+
+  .bg-gradient-accent {
+    background: linear-gradient(135deg, hsl(var(--gradient-accent-start)) 0%, hsl(var(--gradient-accent-end)) 100%);
+  }
+
+  .bg-gradient-hero {
+    background: linear-gradient(135deg, hsl(var(--gradient-hero-1)) 0%, hsl(var(--gradient-hero-2)) 50%, hsl(var(--gradient-hero-3)) 100%);
+  }
+
+  .bg-gradient-card {
+    background: linear-gradient(180deg, hsl(var(--gradient-card-light)) 0%, hsl(var(--gradient-card-subtle)) 100%);
+  }
+
+  /* Glow effects for interactive elements */
+  .glow-on-hover {
+    transition: box-shadow 0.3s ease;
+  }
+
+  .glow-on-hover:hover {
+    box-shadow: var(--glow-primary);
+  }
+
+  .glow-accent-on-hover {
+    transition: box-shadow 0.3s ease;
+  }
+
+  .glow-accent-on-hover:hover {
+    box-shadow: var(--glow-accent);
+  }
+
+  /* Glassmorphism effect */
+  .glassmorphism {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .glassmorphism {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* ========================================
+     ANIMATION UTILITIES - GPU Accelerated
+     ======================================== */
+
+  /* Mobile: Quick tap feedback */
+  .tap-feedback {
+    transition: transform var(--anim-duration-instant) var(--ease-out-smooth),
+      opacity var(--anim-duration-instant) var(--ease-out-smooth);
+  }
+
+  .tap-feedback:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+
+  /* Desktop: Elevated hover */
+  @media (min-width: 1024px) {
+    .hover-lift {
+      transition: transform var(--anim-duration-base) var(--ease-out-smooth),
+        box-shadow var(--anim-duration-base) var(--ease-out-smooth);
+    }
+
+    .hover-lift:hover {
+      transform: translateY(-4px);
+    }
+
+    .hover-scale {
+      transition: transform var(--anim-duration-base) var(--ease-spring);
+    }
+
+    .hover-scale:hover {
+      transform: scale(1.02);
+    }
+  }
+
+  /* Smooth entrance animations */
+  .animate-fade-in {
+    animation: fadeIn var(--anim-duration-base) var(--ease-out-smooth);
+  }
+
+  .animate-slide-up {
+    animation: slideUp var(--anim-duration-base) var(--ease-out-smooth);
+  }
+
+  .animate-slide-down {
+    animation: slideDown var(--anim-duration-base) var(--ease-out-smooth);
+  }
+
+  .animate-scale-in {
+    animation: scaleIn var(--anim-duration-base) var(--ease-spring);
+  }
+
+  /* Pulse animation for badges/notifications */
+  .animate-pulse-once {
+    animation: pulseOnce var(--anim-duration-slow) var(--ease-spring);
+  }
+
+  /* Spring bounce (desktop only) */
+  @media (min-width: 1024px) {
+    .animate-spring {
+      animation: spring var(--anim-duration-slower) var(--ease-spring);
+    }
+  }
+
+  /* GPU acceleration hints */
+  .will-animate {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+}
+
+/* ========================================
+   KEYFRAME ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseOnce {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes spring {
+  0% {
+    transform: scale(0.9);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Desktop: Enhanced timing */
+@media (min-width: 1024px) {
+  :root {
+    --anim-duration-fast: 200ms;
+    --anim-duration-base: 300ms;
+    --anim-duration-slow: 350ms;
+    --anim-duration-slower: 400ms;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY - Reduced Motion
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Disable GPU hints for motion-sensitive users */
+  .will-animate {
+    will-change: auto;
   }
 }
 
