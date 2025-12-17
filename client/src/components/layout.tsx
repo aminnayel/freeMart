@@ -565,40 +565,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           )}
 
-          {/* Profile Link */}
-          <Link href="/profile">
-            <a className="flex flex-col items-center justify-center gap-0.5 w-16 h-14 relative transition-all duration-200 active:scale-90">
-              <div
+          {/* Profile Link - Shows login modal if not logged in */}
+          <button
+            onClick={() => {
+              if (user) {
+                setLocation('/profile');
+              } else {
+                openLogin();
+              }
+            }}
+            className="flex flex-col items-center justify-center gap-0.5 w-16 h-14 relative transition-all duration-200 active:scale-90"
+          >
+            <div
+              className={cn(
+                "absolute inset-x-2 top-1 bottom-4 rounded-2xl transition-all duration-300 ease-out",
+                (location === '/profile' || location.startsWith('/profile/'))
+                  ? "bg-primary/15 dark:bg-primary/20 scale-100 opacity-100"
+                  : "scale-75 opacity-0"
+              )}
+            />
+            <div className={cn(
+              "relative z-10 p-1 transition-all duration-200",
+              (location === '/profile' || location.startsWith('/profile/')) && "-translate-y-0.5"
+            )}>
+              <User
                 className={cn(
-                  "absolute inset-x-2 top-1 bottom-4 rounded-2xl transition-all duration-300 ease-out",
+                  "w-[22px] h-[22px] transition-all duration-200",
                   (location === '/profile' || location.startsWith('/profile/'))
-                    ? "bg-primary/15 dark:bg-primary/20 scale-100 opacity-100"
-                    : "scale-75 opacity-0"
+                    ? "text-primary stroke-[2.5px]"
+                    : "text-muted-foreground stroke-[1.75px]"
                 )}
               />
-              <div className={cn(
-                "relative z-10 p-1 transition-all duration-200",
-                (location === '/profile' || location.startsWith('/profile/')) && "-translate-y-0.5"
-              )}>
-                <User
-                  className={cn(
-                    "w-[22px] h-[22px] transition-all duration-200",
-                    (location === '/profile' || location.startsWith('/profile/'))
-                      ? "text-primary stroke-[2.5px]"
-                      : "text-muted-foreground stroke-[1.75px]"
-                  )}
-                />
-              </div>
-              <span className={cn(
-                "relative z-10 text-[10px] font-medium transition-all duration-200",
-                (location === '/profile' || location.startsWith('/profile/'))
-                  ? "text-primary font-semibold"
-                  : "text-muted-foreground"
-              )}>
-                {isRTL ? 'حسابي' : 'Profile'}
-              </span>
-            </a>
-          </Link>
+            </div>
+            <span className={cn(
+              "relative z-10 text-[10px] font-medium transition-all duration-200",
+              (location === '/profile' || location.startsWith('/profile/'))
+                ? "text-primary font-semibold"
+                : "text-muted-foreground"
+            )}>
+              {isRTL ? 'حسابي' : 'Profile'}
+            </span>
+          </button>
         </div>
       </nav>
 

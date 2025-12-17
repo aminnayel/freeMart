@@ -58,24 +58,20 @@ export function CategoryTile({
         <button
             onClick={onClick}
             className={cn(
-                "group flex flex-col items-center gap-2 rounded-2xl snap-start box-border",
-                "transition-colors transition-shadow transition-transform duration-200",
-                "hover:scale-[1.02] active:scale-[0.98]",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                "group flex flex-col items-center gap-1.5 snap-start box-border rounded-none",
+                "transition-colors duration-150",
+                "focus:outline-none",
                 config.container,
                 isActive
-                    ? "bg-gradient-to-br from-primary/15 to-primary/5 shadow-lg shadow-primary/10 outline outline-2 outline-primary/30"
-                    : "bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:bg-gradient-to-br hover:from-primary/5 hover:to-transparent outline outline-0 outline-transparent"
+                    ? "bg-transparent"
+                    : "bg-transparent hover:bg-muted/30"
             )}
         >
             {/* Icon Container */}
             <div
                 className={cn(
-                    "flex items-center justify-center rounded-xl overflow-hidden transition-all duration-300",
-                    "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900",
-                    "group-hover:scale-105",
-                    config.icon,
-                    isActive && "from-primary/10 to-primary/5 ring-1 ring-primary/20"
+                    "flex items-center justify-center overflow-hidden",
+                    config.icon
                 )}
             >
                 {(category.imageUrl?.startsWith('http') || category.imageUrl?.startsWith('/')) ? (
@@ -86,7 +82,7 @@ export function CategoryTile({
                         loading="lazy"
                     />
                 ) : (
-                    <span className="select-none transition-transform duration-300 group-hover:scale-110">
+                    <span className="select-none">
                         {category.imageUrl || "📦"}
                     </span>
                 )}
@@ -95,11 +91,11 @@ export function CategoryTile({
             {/* Category Name */}
             <span
                 className={cn(
-                    "font-semibold text-center leading-tight max-w-full truncate px-0.5 transition-colors duration-200",
+                    "text-center leading-tight max-w-full truncate px-0.5",
                     config.text,
                     isActive
-                        ? "text-primary"
-                        : "text-foreground/70 group-hover:text-foreground"
+                        ? "font-bold text-primary"
+                        : "font-medium text-foreground/80"
                 )}
             >
                 {getDisplayName()}
@@ -131,9 +127,10 @@ export const CategoryRow = memo(function CategoryRow({
 }: CategoryRowProps & { size?: 'sm' | 'md' | 'lg' }) {
     return (
         <div className="relative" dir={isRTL ? "rtl" : "ltr"}>
+            {/* Transparent container for all categories */}
             <div
                 className={cn(
-                    "flex gap-2 overflow-x-auto pb-2 px-4 -mx-4 scrollbar-none snap-x snap-mandatory"
+                    "flex overflow-x-auto scrollbar-none snap-x snap-mandatory"
                 )}
             >
                 {/* All Categories Button */}

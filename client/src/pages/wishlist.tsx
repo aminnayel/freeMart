@@ -21,6 +21,7 @@ import { translateContent } from "@/lib/translator";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductDetailsContent } from "@/components/shop/product-details-content";
+import { ProductCard } from "@/components/shop/product-card";
 import type { Product } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthModal } from "@/components/auth/auth-modal-context";
@@ -288,153 +289,22 @@ export default function Wishlist() {
                     <div className="lg:col-span-8">
                         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5">
                             {wishlistItems.map((item) => {
-                                const cartQty = getCartQuantity(item.productId);
-                                const isOutOfStock = !item.product.isAvailable;
-
                                 return (
-                                    <Card
+                                    <ProductCard
                                         key={item.id}
-                                        className={cn(
-                                            "group relative overflow-hidden border-0 bg-white dark:bg-slate-900 rounded-2xl transition-all duration-300 cursor-pointer shadow-md hover:shadow-lg",
-                                            "hover:-translate-y-1 active:scale-[0.98]",
-                                            isOutOfStock && "opacity-80"
-                                        )}
+                                        product={item.product as any}
+                                        quantity={getCartQuantity(item.productId)}
+                                        onAddToCart={() => addToCartMutation.mutate(item.productId)}
+                                        onIncrement={() => handleIncrement(item.productId)}
+                                        onDecrement={() => handleDecrement(item.productId)}
+                                        onNotifyMe={() => handleNotifyMe(item.productId)}
                                         onClick={() => setSelectedProduct(item.product as unknown as Product)}
-                                    >
-                                        {/* Product Image */}
-                                        <div className="relative aspect-square overflow-hidden">
-                                            <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-                                                {(item.product.imageUrl?.startsWith('http') || item.product.imageUrl?.startsWith('/')) ? (
-                                                    <img
-                                                        src={item.product.imageUrl}
-                                                        alt={getProductName(item.product)}
-                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                                        loading="lazy"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-5xl">
-                                                        {item.product.imageUrl || <Package className="w-14 h-14 text-slate-300" />}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Out of Stock Overlay */}
-                                            {isOutOfStock && (
-                                                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
-                                                    <span className="text-white font-bold text-sm border-2 border-white px-4 py-1.5 rounded-full transform -rotate-12 shadow-lg">
-                                                        {isRTL ? 'نفذ المخزون' : 'OUT OF STOCK'}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {/* Remove from Wishlist Button */}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    removeFromWishlistMutation.mutate(item.productId);
-                                                }}
-                                                className={cn(
-                                                    "absolute top-2 h-8 w-8 flex items-center justify-center rounded-full",
-                                                    "bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm",
-                                                    "hover:bg-red-100 hover:text-red-600 active:scale-90 transition-all",
-                                                    isRTL ? "left-2" : "right-2"
-                                                )}
-                                                disabled={removeFromWishlistMutation.isPending}
-                                            >
-                                                {removeFromWishlistMutation.isPending ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <Trash2 className="w-4 h-4" />
-                                                )}
-                                            </button>
-
-                                            {/* Wishlist Heart Indicator */}
-                                            <div className={cn(
-                                                "absolute top-2 bg-white/90 dark:bg-slate-900/90 rounded-full p-1.5 shadow-sm",
-                                                isRTL ? "right-2" : "left-2"
-                                            )}>
-                                                <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-                                            </div>
-                                        </div>
-
-                                        {/* Content Section */}
-                                        <div className="p-3 space-y-2">
-                                            {/* Product Name */}
-                                            <h3 className={cn(
-                                                "font-semibold text-sm leading-tight line-clamp-2 min-h-[2.5rem]",
-                                                "group-hover:text-primary transition-colors",
-                                                isRTL ? "text-right" : "text-left"
-                                            )}>
-                                                {getProductName(item.product)}
-                                            </h3>
-
-                                            {/* Price Row */}
-                                            <div className="flex items-baseline gap-1.5">
-                                                <span className="text-lg font-bold text-primary">
-                                                    {item.product.price}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    {isRTL ? 'جنيه' : 'EGP'}
-                                                </span>
-                                                {item.product.originalPrice && parseFloat(item.product.originalPrice) > parseFloat(item.product.price) && (
-                                                    <span className="text-xs text-muted-foreground line-through ml-auto rtl:mr-auto rtl:ml-0">
-                                                        {item.product.originalPrice}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Action Button */}
-                                            <div className="pt-1" onClick={(e) => e.stopPropagation()}>
-                                                {isOutOfStock ? (
-                                                    <Badge variant="secondary" className="w-full justify-center text-xs py-2 bg-muted/50">
-                                                        {isRTL ? 'غير متوفر حالياً' : 'Currently Unavailable'}
-                                                    </Badge>
-                                                ) : cartQty === 0 ? (
-                                                    <Button
-                                                        className="w-full h-10 rounded-xl text-sm font-medium gap-2 shadow-sm hover:shadow-md transition-all"
-                                                        onClick={() => addToCartMutation.mutate(item.productId)}
-                                                        disabled={addToCartMutation.isPending}
-                                                    >
-                                                        {addToCartMutation.isPending ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                                        ) : (
-                                                            <>
-                                                                <ShoppingCart className="w-4 h-4" />
-                                                                {isRTL ? 'أضف' : 'Add'}
-                                                            </>
-                                                        )}
-                                                    </Button>
-                                                ) : (
-                                                    <div
-                                                        className="flex items-center justify-between bg-primary/10 rounded-xl p-1"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-                                                            onClick={() => handleDecrement(item.productId)}
-                                                            disabled={updateCartMutation.isPending || removeFromCartMutation.isPending}
-                                                        >
-                                                            <span className="text-lg font-bold">−</span>
-                                                        </Button>
-                                                        <span className="font-bold text-base text-primary min-w-[2rem] text-center">
-                                                            {cartQty}
-                                                        </span>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-slate-800 shadow-sm"
-                                                            onClick={() => handleIncrement(item.productId)}
-                                                            disabled={updateCartMutation.isPending}
-                                                        >
-                                                            <span className="text-lg font-bold">+</span>
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </Card>
+                                        isRTL={isRTL}
+                                        isNotifySubscribed={notifiedProducts.has(item.productId)}
+                                        isInWishlist={true}
+                                        showWishlist={true}
+                                        t={t}
+                                    />
                                 );
                             })}
                         </div>

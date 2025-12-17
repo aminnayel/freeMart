@@ -143,32 +143,32 @@ export default function Shop() {
   // Scrolls to show products after category bar is in sticky position
   const handleCategorySelect = useCallback((id: number | null) => {
     setSelectedCategory(id);
-    
+
     // Scroll to show products with categories bar at top (sticky)
     setTimeout(() => {
       requestAnimationFrame(() => {
         // Find the products grid section
         const mobileProductsGrid = document.getElementById('products-grid');
         const desktopProductsGrid = document.getElementById('desktop-products-grid');
-        
+
         // Use the one that's actually visible
         const productsGrid = (mobileProductsGrid && mobileProductsGrid.offsetHeight > 0)
           ? mobileProductsGrid
           : desktopProductsGrid;
-        
+
         // Find the categories section for offset calculation
         const mobileCategories = document.getElementById('categories-section');
         const desktopCategories = document.getElementById('desktop-categories-section');
         const categoriesBar = (mobileCategories && mobileCategories.offsetHeight > 0)
           ? mobileCategories
           : desktopCategories;
-        
+
         if (productsGrid && categoriesBar) {
           // Scroll so products grid starts right below the sticky categories bar
           const categoriesHeight = categoriesBar.offsetHeight;
           const productsRect = productsGrid.getBoundingClientRect();
           const scrollTarget = window.scrollY + productsRect.top - categoriesHeight - 8; // 8px gap
-          
+
           window.scrollTo({
             top: Math.max(0, scrollTarget),
             behavior: 'smooth'
@@ -624,7 +624,7 @@ export default function Shop() {
       {/* ======================================== */}
       {/* MOBILE LAYOUT */}
       {/* ======================================== */}
-      <div className="lg:hidden">
+      <div className="lg:hidden overflow-x-hidden">
         {/* Main Content */}
         <div className="pb-24 pt-4">
           {isInitialLoading ? (
