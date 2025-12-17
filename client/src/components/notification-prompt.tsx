@@ -120,7 +120,7 @@ export function NotificationPrompt() {
             )}
             dir={isRTL ? 'rtl' : 'ltr'}
         >
-            <div className="bg-gradient-to-br from-primary/5 to-background border-2 border-primary/20 shadow-2xl shadow-primary/10 rounded-2xl p-5 backdrop-blur-xl">
+            <div className="bg-background/95 backdrop-blur-xl border-2 border-primary/20 shadow-2xl shadow-primary/10 rounded-2xl p-5">
                 {/* Top Bar with Icon and Close */}
                 <div className="flex items-start gap-4">
                     <div className="p-3 bg-gradient-to-br from-primary to-primary/80 text-white rounded-xl shrink-0 shadow-lg shadow-primary/30">

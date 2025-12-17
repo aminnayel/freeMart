@@ -139,6 +139,45 @@ export default function Shop() {
     setIsMounted(true);
   }, []);
 
+  // Stable callback for category selection - prevents CategoryRow re-renders
+  // Scrolls to show products after category bar is in sticky position
+  const handleCategorySelect = useCallback((id: number | null) => {
+    setSelectedCategory(id);
+    
+    // Scroll to show products with categories bar at top (sticky)
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        // Find the products grid section
+        const mobileProductsGrid = document.getElementById('products-grid');
+        const desktopProductsGrid = document.getElementById('desktop-products-grid');
+        
+        // Use the one that's actually visible
+        const productsGrid = (mobileProductsGrid && mobileProductsGrid.offsetHeight > 0)
+          ? mobileProductsGrid
+          : desktopProductsGrid;
+        
+        // Find the categories section for offset calculation
+        const mobileCategories = document.getElementById('categories-section');
+        const desktopCategories = document.getElementById('desktop-categories-section');
+        const categoriesBar = (mobileCategories && mobileCategories.offsetHeight > 0)
+          ? mobileCategories
+          : desktopCategories;
+        
+        if (productsGrid && categoriesBar) {
+          // Scroll so products grid starts right below the sticky categories bar
+          const categoriesHeight = categoriesBar.offsetHeight;
+          const productsRect = productsGrid.getBoundingClientRect();
+          const scrollTarget = window.scrollY + productsRect.top - categoriesHeight - 8; // 8px gap
+          
+          window.scrollTo({
+            top: Math.max(0, scrollTarget),
+            behavior: 'smooth'
+          });
+        }
+      });
+    }, 100); // Slightly longer delay to ensure DOM updates
+  }, []);
+
   const getProductName = (product: Product) => {
     if (i18n.language === 'en' && product.englishName) {
       return product.englishName;
@@ -237,17 +276,38 @@ export default function Shop() {
     initialUrlSyncDone.current = true;
   }, [categories]);
 
-  const { data: products = [], isLoading: isProductsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products", selectedCategory, searchQuery],
+  // Fetch ALL products once - filtering happens client-side to avoid refetch on category change
+  const { data: allProducts = [], isLoading: isProductsLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedCategory && !searchQuery) params.append("categoryId", selectedCategory.toString());
-      if (searchQuery) params.append("search", searchQuery);
-      const res = await fetch(`/api/products${params.toString() ? "?" + params.toString() : ""}`);
+      const res = await fetch("/api/products");
       if (!res.ok) throw new Error("Failed to fetch products");
       return res.json();
     },
+    staleTime: 30000, // Cache for 30 seconds to avoid unnecessary refetches
   });
+
+  // Client-side filtering - no API refetch, instant category switching
+  const products = useMemo(() => {
+    let filtered = allProducts;
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        (p.englishName && p.englishName.toLowerCase().includes(query)) ||
+        (p.description && p.description.toLowerCase().includes(query))
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory && !searchQuery) {
+      filtered = filtered.filter(p => p.categoryId === selectedCategory);
+    }
+
+    return filtered;
+  }, [allProducts, selectedCategory, searchQuery]);
 
   // Handle direct product links from notifications (Deep Linking)
   const params = new URLSearchParams(window.location.search);
@@ -701,28 +761,7 @@ export default function Shop() {
                 <CategoryRow
                   categories={categories}
                   activeId={selectedCategory}
-                  onSelect={(id) => {
-                    setSelectedCategory(id);
-                    // Only scroll if categories bar is not already stuck at top
-                    if (!categoriesStuck) {
-                      // Scroll to make categories header at top after products load
-                      setTimeout(() => {
-                        requestAnimationFrame(() => {
-                          const element = document.getElementById('categories-section');
-                          if (element) {
-                            const headerOffset = 80;
-                            const elementPosition = element.getBoundingClientRect().top;
-                            const offsetPosition = elementPosition + window.scrollY - headerOffset;
-
-                            window.scrollTo({
-                              top: offsetPosition,
-                              behavior: 'smooth'
-                            });
-                          }
-                        });
-                      }, 300);
-                    }
-                  }}
+                  onSelect={handleCategorySelect}
                   isRTL={isRTL}
                 />
               </div>
@@ -915,30 +954,7 @@ export default function Shop() {
                 <CategoryRow
                   categories={categories}
                   activeId={selectedCategory}
-                  onSelect={(id) => {
-                    if (!searchQuery) {
-                      setSelectedCategory(id);
-                      // Only scroll if categories bar is not already stuck at top
-                      if (!categoriesStuck) {
-                        // Scroll to make categories header at top after products load
-                        setTimeout(() => {
-                          requestAnimationFrame(() => {
-                            const element = document.getElementById('desktop-categories-section');
-                            if (element) {
-                              const headerOffset = 80;
-                              const elementPosition = element.getBoundingClientRect().top;
-                              const offsetPosition = elementPosition + window.scrollY - headerOffset;
-
-                              window.scrollTo({
-                                top: offsetPosition,
-                                behavior: 'smooth'
-                              });
-                            }
-                          });
-                        }, 300);
-                      }
-                    }
-                  }}
+                  onSelect={handleCategorySelect}
                   isRTL={isRTL}
                   size="lg"
                 />

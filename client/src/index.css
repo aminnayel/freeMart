@@ -247,9 +247,9 @@
   /* 4px base unit */
 
   /* ========================================
-     BORDER RADIUS
+     BORDER RADIUS - Reduced for better contrast
      ======================================== */
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   /* 12px - default */
   --radius-sm: 0.5rem;
   /* 8px */
@@ -340,13 +340,13 @@
   --elevate-1: rgba(255, 255, 255, .04);
   --elevate-2: rgba(255, 255, 255, .09);
 
-  /* Deep navy dark mode - richer, more premium */
+  /* Deep navy dark mode - richer, more premium, enhanced vibrancy */
   --background: 222 47% 11%;
   --foreground: 210 40% 98%;
-  --border: 217 25% 24%;
-  --card: 222 40% 14%;
+  --border: 217 32% 28%;
+  --card: 222 42% 16%;
   --card-foreground: 210 40% 98%;
-  --card-border: 217 25% 24%;
+  --card-border: 217 28% 26%;
   --sidebar: 222 47% 9%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-border: 217 25% 22%;
@@ -358,13 +358,13 @@
   --popover: 222 40% 14%;
   --popover-foreground: 210 40% 98%;
   --popover-border: 217 25% 24%;
-  --primary: 158 70% 50%;
+  --primary: 158 75% 55%;
   --primary-foreground: 222 47% 11%;
-  --secondary: 217 25% 22%;
+  --secondary: 217 28% 24%;
   --secondary-foreground: 210 40% 98%;
-  --muted: 217 25% 22%;
-  --muted-foreground: 215 20% 70%;
-  --accent: 14 85% 55%;
+  --muted: 217 28% 24%;
+  --muted-foreground: 215 20% 75%;
+  --accent: 14 90% 58%;
   --accent-foreground: 210 40% 98%;
   --destructive: 0 62% 50%;
   --destructive-foreground: 210 40% 98%;

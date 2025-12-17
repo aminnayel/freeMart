@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { translateContent } from "@/lib/translator";
 
@@ -57,13 +58,14 @@ export function CategoryTile({
         <button
             onClick={onClick}
             className={cn(
-                "group flex flex-col items-center gap-2 rounded-2xl transition-all duration-300 snap-start",
+                "group flex flex-col items-center gap-2 rounded-2xl snap-start box-border",
+                "transition-colors transition-shadow transition-transform duration-200",
                 "hover:scale-[1.02] active:scale-[0.98]",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                 config.container,
                 isActive
-                    ? "bg-gradient-to-br from-primary/15 to-primary/5 shadow-lg shadow-primary/10 ring-2 ring-primary/30"
-                    : "bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:bg-gradient-to-br hover:from-primary/5 hover:to-transparent"
+                    ? "bg-gradient-to-br from-primary/15 to-primary/5 shadow-lg shadow-primary/10 outline outline-2 outline-primary/30"
+                    : "bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:bg-gradient-to-br hover:from-primary/5 hover:to-transparent outline outline-0 outline-transparent"
             )}
         >
             {/* Icon Container */}
@@ -120,7 +122,7 @@ interface CategoryRowProps {
     isRTL?: boolean;
 }
 
-export function CategoryRow({
+export const CategoryRow = memo(function CategoryRow({
     categories,
     activeId,
     onSelect,
@@ -173,6 +175,6 @@ export function CategoryRow({
             )} />
         </div>
     );
-}
+});
 
 export default CategoryTile;
